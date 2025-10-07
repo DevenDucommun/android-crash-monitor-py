@@ -168,7 +168,7 @@ class ConsoleUI:
             status = self._format_device_status(device.status)
             model = device.model or "[dim]Unknown[/dim]"
             
-            row = [device.id, status, model]
+            row = [device.serial, status, model]
             
             if detailed:
                 product = device.product or "[dim]N/A[/dim]"
