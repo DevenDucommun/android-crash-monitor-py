@@ -46,7 +46,7 @@ class MonitoringConfig(BaseModel):
     # Setup wizard compatible fields
     target_devices: List[str] = Field(default_factory=list)
     adb_path: Optional[str] = None
-    log_level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    log_level: str = Field(default="DEBUG", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     output_dir: Path = Field(default_factory=lambda: Path.home() / "android_logs")
     auto_rotate_logs: bool = True
     max_log_size: int = 100 * 1024 * 1024  # 100MB in bytes
@@ -58,8 +58,8 @@ class MonitoringConfig(BaseModel):
     buffer_size: int = Field(default=1024, ge=256, le=8192)
     refresh_interval: float = Field(default=1.0, ge=0.1, le=10.0)
     
-    # Filtering options
-    default_filters: List[str] = Field(default_factory=lambda: ["crash", "error"])
+    # Filtering options (empty list means capture all logs)
+    default_filters: List[str] = Field(default_factory=list)
     excluded_packages: List[str] = Field(default_factory=list)
     
     # Export settings

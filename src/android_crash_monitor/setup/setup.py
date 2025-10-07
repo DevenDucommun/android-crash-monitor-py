@@ -94,15 +94,14 @@ class SetupWizard:
         
         title = Text("Android Crash Monitor Setup", style="bold blue")
         welcome_text = """
-Welcome to Android Crash Monitor! This setup wizard will help you:
+🚀 Quick setup to get you monitoring Android crashes!
 
-🔧 Detect your system capabilities and existing tools
-📱 Install or configure Android Debug Bridge (ADB) 
-🔍 Discover connected Android devices
-⚙️  Create monitoring profiles and configurations
-✅ Validate your complete setup
+This will:
+• Configure ADB if needed
+• Detect connected devices  
+• Set up monitoring with smart defaults
 
-The process typically takes 2-5 minutes depending on your system.
+Typically takes 1-2 minutes.
         """.strip()
         
         panel = Panel(
@@ -116,7 +115,7 @@ The process typically takes 2-5 minutes depending on your system.
         self.console.print(panel)
         self.console.print()
         
-        if not Confirm.ask("Ready to begin setup?", default=True):
+        if not Confirm.ask("Ready to begin?", default=True):
             self.ui.info("Setup cancelled by user.")
             sys.exit(0)
     
@@ -127,30 +126,16 @@ The process typically takes 2-5 minutes depending on your system.
         with self.ui.spinner("Analyzing your system..."):
             self.system_info = await self.system_detector.get_system_info()
         
-        # Display system information
-        self.ui.info(f"Operating System: {self.system_info.os} {self.system_info.version}")
-        self.ui.info(f"Architecture: {self.system_info.arch}")
-        self.ui.info(f"Python Version: {self.system_info.python_version}")
+        # Display essential system information
+        self.ui.success(f"System: {self.system_info.os} ({self.system_info.arch})")
         
-        if self.system_info.package_managers:
-            managers = ", ".join(self.system_info.package_managers)
-            self.ui.success(f"Package Managers: {managers}")
-        else:
-            self.ui.warning("No package managers detected")
-        
-        if self.system_info.download_tools:
-            tools = ", ".join(self.system_info.download_tools)
-            self.ui.success(f"Download Tools: {tools}")
-        else:
+        if not self.system_info.download_tools:
             self.ui.error("No download tools (curl/wget) found")
             return False
         
         # Check for existing Android development tools
         if self.system_info.has_android_sdk:
             self.ui.success("Android SDK detected")
-        
-        if self.system_info.has_java:
-            self.ui.success(f"Java detected: {self.system_info.java_version}")
         
         self.console.print()
         return True
@@ -163,14 +148,7 @@ The process typically takes 2-5 minutes depending on your system.
         try:
             self.adb_manager = ADBManager()
             adb_version = await self._get_adb_version()
-            self.ui.success(f"ADB found: {adb_version}")
-            self.ui.info(f"ADB Location: {self.adb_manager.adb_path}")
-            
-            # Test ADB functionality
-            with self.ui.spinner("Testing ADB functionality..."):
-                await asyncio.sleep(1)  # Simulate test
-            
-            self.ui.success("ADB is working correctly")
+            self.ui.success(f"ADB ready: {adb_version}")
             self.console.print()
             return True
             
@@ -418,8 +396,11 @@ For Windows, you can install ADB using:
             return await self._wait_for_devices()
         
         # Display found devices
-        self.ui.success(f"Found {len(self.detected_devices)} device(s):")
-        self.ui.display_devices(self.detected_devices)
+        ready_devices = [d for d in self.detected_devices if d.status == "device"]
+        if ready_devices:
+            self.ui.success(f"Found {len(ready_devices)} ready device(s)")
+        else:
+            self.ui.warning(f"Found {len(self.detected_devices)} device(s) but none ready")
         
         # Check device states
         return await self._validate_device_states()
@@ -527,16 +508,11 @@ To connect your Android device:
         """Create initial configuration profiles."""
         self.ui.header("Configuration Setup")
         
-        # Get profile name
-        default_profile = "default"
-        profile_name = Prompt.ask(
-            "Configuration profile name",
-            default=default_profile
-        )
-        
+        # Use automatic profile naming
+        profile_name = "default"
         self.setup_profile = profile_name
         
-        # Create monitoring configuration
+        # Create monitoring configuration with smart defaults
         config = MonitoringConfig()
         
         # Configure based on detected devices
@@ -544,55 +520,49 @@ To connect your Android device:
             device_serials = [d.serial for d in self.detected_devices if d.status == "device"]
             if device_serials:
                 config.target_devices = device_serials
-                self.ui.success(f"Configured to monitor {len(device_serials)} device(s)")
         
         # Set ADB path if we found it
         if self.adb_manager and self.adb_manager.adb_path:
             config.adb_path = str(self.adb_manager.adb_path)
         
-        # Ask about monitoring preferences
-        self.ui.info("Configuring monitoring preferences...")
+        # Set log level to DEBUG automatically (capture all logs)
+        config.log_level = "DEBUG"
         
-        # Log level
-        log_levels = ["DEBUG", "INFO", "WARNING", "ERROR"]
-        log_level = Prompt.ask(
-            "Log level",
-            choices=log_levels,
-            default="INFO"
-        )
-        config.log_level = log_level
-        
-        # Output directory
+        # Output directory with smart defaults
         default_output = self.config_manager.get_logs_dir()
-        output_dir = Prompt.ask(
-            "Log output directory",
-            default=str(default_output)
-        )
-        config.output_dir = Path(output_dir)
         
-        # Auto-rotate logs
-        config.auto_rotate_logs = Confirm.ask(
-            "Enable automatic log rotation?",
-            default=True
-        )
+        if Confirm.ask(f"Use default log directory ({default_output})?", default=True):
+            config.output_dir = default_output
+        else:
+            output_dir = Prompt.ask(
+                "Custom log directory",
+                default=str(default_output)
+            )
+            config.output_dir = Path(output_dir)
         
-        if config.auto_rotate_logs:
+        # Auto-configure log rotation with smart defaults
+        config.auto_rotate_logs = True
+        default_size_mb = 50  # 50MB default for better performance
+        
+        if Confirm.ask(f"Use default max log file size ({default_size_mb}MB)?", default=True):
+            config.max_log_size = default_size_mb * 1024 * 1024
+        else:
             max_size = Prompt.ask(
-                "Maximum log file size (MB)",
-                default="100"
+                "Custom max log file size (MB)",
+                default=str(default_size_mb)
             )
             try:
                 config.max_log_size = int(max_size) * 1024 * 1024  # Convert to bytes
             except ValueError:
-                config.max_log_size = 100 * 1024 * 1024  # Default 100MB
+                config.max_log_size = default_size_mb * 1024 * 1024  # Fallback to default
+                self.ui.warning(f"Invalid size, using default: {default_size_mb}MB")
         
         # Save configuration
         try:
             self.config_manager.save_profile(profile_name, config)
             self.config_manager.set_active_profile(profile_name)
             
-            self.ui.success(f"Configuration saved as profile: {profile_name}")
-            self.ui.info(f"Config location: {self.config_manager.config_dir}")
+            self.ui.success(f"Configuration saved as '{profile_name}' profile")
             
             return True
             
@@ -620,7 +590,7 @@ To connect your Android device:
         # Check configuration
         try:
             active_config = self.config_manager.get_active_config()
-            validation_results.append(("Configuration", True, f"Profile: {self.config_manager.active_profile}"))
+            validation_results.append(("Configuration", True, f"Ready for monitoring"))
         except Exception as e:
             validation_results.append(("Configuration", False, f"Error: {e}"))
         
@@ -662,15 +632,11 @@ To connect your Android device:
         completion_text = """
 🎉 Setup Complete!
 
-Your Android Crash Monitor is now configured and ready to use.
+Your Android Crash Monitor is ready!
 
-Next steps:
-• Run 'acm devices' to see connected devices
-• Run 'acm monitor' to start monitoring for crashes
-• Run 'acm logs' to view previous crash logs
-• Run 'acm config' to modify your settings
-
-For help with any command, use: acm <command> --help
+Start monitoring: acm monitor
+View devices: acm devices
+Get help: acm --help
         """.strip()
         
         panel = Panel(
