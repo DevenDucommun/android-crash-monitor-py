@@ -29,12 +29,21 @@ class SystemDetector:
     def detect_all(self) -> SystemInfo:
         """Detect all system information at once."""
         return SystemInfo(
-            os_name=self.get_os_name(),
-            architecture=self.get_architecture(),
+            os=self.get_os_name(),
+            version=self.get_os_version(),
+            arch=self.get_architecture(),
             python_version=self.get_python_version(),
             package_managers=self.detect_package_managers(),
-            has_download_tools=self.has_download_tools()
+            download_tools=self.get_download_tools(),
+            has_android_sdk=self.get_android_home() is not None,
+            has_java=self.get_java_version() is not None,
+            java_version=self.get_java_version(),
+            is_admin=self.is_admin()
         )
+    
+    async def get_system_info(self) -> SystemInfo:
+        """Get system information (async version for compatibility)."""
+        return self.detect_all()
     
     def get_os_name(self) -> str:
         """Get the operating system name."""
@@ -63,6 +72,47 @@ class SystemDetector:
             else:
                 self._cache['architecture'] = machine.upper()
         return self._cache['architecture']
+    
+    def get_os_version(self) -> str:
+        """Get the operating system version."""
+        if 'os_version' not in self._cache:
+            try:
+                system = platform.system()
+                if system == 'Darwin':
+                    # macOS version
+                    version = platform.mac_ver()[0]
+                elif system == 'Linux':
+                    # Linux distribution version
+                    try:
+                        with open('/etc/os-release', 'r') as version_file:
+                            version = None
+                            for line in version_file:
+                                if line.startswith('VERSION='):
+                                    version = line.split('=')[1].strip().strip('"')
+                                    break
+                            if not version:
+                                version = platform.release()
+                    except FileNotFoundError:
+                        version = platform.release()
+                elif system == 'Windows':
+                    version = platform.release()
+                else:
+                    version = platform.release()
+                self._cache['os_version'] = version or 'Unknown'
+            except Exception:
+                self._cache['os_version'] = 'Unknown'
+        return self._cache['os_version']
+    
+    def get_download_tools(self) -> List[str]:
+        """Get available download tools."""
+        if 'download_tools' not in self._cache:
+            tools = []
+            if self._command_exists('curl'):
+                tools.append('curl')
+            if self._command_exists('wget'):
+                tools.append('wget')
+            self._cache['download_tools'] = tools
+        return self._cache['download_tools']
     
     def get_python_version(self) -> str:
         """Get the Python version."""

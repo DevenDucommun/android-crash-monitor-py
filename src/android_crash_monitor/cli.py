@@ -165,9 +165,44 @@ def monitor(ctx, device: Optional[str], output: Optional[Path],
         ui.error("Setup not completed. Run 'acm setup' first.")
         sys.exit(1)
     
-    # TODO: Implement monitor functionality
-    ui.info("Monitor functionality coming soon!")
-    ui.warning("This will be implemented in the next phase.")
+    from .core.monitor import AndroidCrashMonitor
+    import asyncio
+    
+    try:
+        # Create and start the monitoring engine
+        monitor = AndroidCrashMonitor(config, ui)
+        
+        # Parse device filter
+        device_serials = [device] if device else None
+        
+        # Show monitoring info
+        if device:
+            ui.info(f"Starting monitoring for device: {device}")
+        else:
+            ui.info("Starting monitoring for all connected devices")
+        
+        if output:
+            ui.info(f"Output directory: {output}")
+            # Update config with custom output directory
+            config.output_dir = output
+        
+        if filter:
+            ui.info(f"Filters: {', '.join(filter)}")
+            config.default_filters = list(filter)
+        
+        if duration:
+            ui.info(f"Duration: {duration}")
+            # TODO: Parse duration and set timeout
+        
+        # Start monitoring (run in async context)
+        asyncio.run(monitor.start_monitoring(device_serials))
+        
+    except KeyboardInterrupt:
+        ui.info("\nMonitoring stopped by user")
+    except Exception as e:
+        ui.error(f"Monitoring failed: {e}")
+        logger.exception("Monitor command failed")
+        sys.exit(1)
 
 
 @cli.command()
