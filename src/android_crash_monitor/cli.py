@@ -175,20 +175,17 @@ def monitor(ctx, device: Optional[str], output: Optional[Path],
         # Parse device filter
         device_serials = [device] if device else None
         
-        # Show monitoring info
-        if device:
-            ui.info(f"Starting monitoring for device: {device}")
-        else:
-            ui.info("Starting monitoring for all connected devices")
-        
+        # Apply configuration overrides
         if output:
-            ui.info(f"Output directory: {output}")
-            # Update config with custom output directory
             config.output_dir = output
         
         if filter:
-            ui.info(f"Filters: {', '.join(filter)}")
             config.default_filters = list(filter)
+        
+        # Show streamlined monitoring info
+        target = device if device else "all devices"
+        ui.info(f"Monitoring {target} - {config.log_level} level")
+        ui.info(f"Output: {config.output_dir}")
         
         if duration:
             ui.info(f"Duration: {duration}")
@@ -373,21 +370,24 @@ def config(ctx, profile: Optional[str], list_profiles: bool, edit: bool):
     if list_profiles:
         profiles = config_mgr.list_profiles()
         if profiles:
-            ui.success(f"Available profiles: {', '.join(profiles)}")
-            ui.info(f"Active profile: {config_mgr.active_profile}")
+            ui.success(f"Configuration profiles: {', '.join(profiles)}")
         else:
-            ui.warning("No profiles found. Run 'acm setup' to create one.")
+            ui.warning("No configuration found. Run 'acm setup' first.")
         return
     
     if edit:
         ui.info("Configuration editing functionality coming soon!")
         return
     
-    # Show current config
+    # Show current config status
     if config:
-        ui.info(f"Active profile: {config_mgr.active_profile}")
-        ui.info(f"Config directory: {config_mgr.config_dir}")
-        # TODO: Display current configuration details
+        ui.success("Configuration ready for monitoring")
+        ui.info(f"Log level: {config.log_level}")
+        ui.info(f"Output directory: {config.output_dir}")
+        ui.info(f"Log rotation: {'Enabled' if config.auto_rotate_logs else 'Disabled'}")
+        if config.auto_rotate_logs:
+            size_mb = config.max_log_size // (1024 * 1024)
+            ui.info(f"Max log size: {size_mb}MB")
     else:
         ui.warning("No configuration found. Run 'acm setup' first.")
 

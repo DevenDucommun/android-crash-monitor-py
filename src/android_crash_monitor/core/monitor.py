@@ -12,6 +12,7 @@ Core monitoring functionality that:
 
 import asyncio
 import json
+import os
 import re
 import signal
 import time
@@ -369,7 +370,6 @@ class CrashDetector:
     def _calculate_severity(self, crash_type: CrashType, log_level: LogLevel) -> int:
         """Calculate crash severity (1-10 scale)."""
         base_severity = {
-            CrashType.FATAL: 10,
             CrashType.CRASH: 9,
             CrashType.ANR: 8,
             CrashType.NATIVE_CRASH: 9,
@@ -514,7 +514,6 @@ class AndroidCrashMonitor:
         if self.is_running:
             raise RuntimeError("Monitor is already running")
         
-        self.console.header("Starting Android Crash Monitor")
         self.start_time = datetime.now()
         self.stats.start_time = self.start_time.isoformat()
         
@@ -530,7 +529,6 @@ class AndroidCrashMonitor:
             self._setup_signal_handlers()
             
             self.is_running = True
-            self.console.success(f"Monitoring started for {len(self.monitored_devices)} device(s)")
             
             # Start monitoring tasks
             tasks = []
@@ -587,39 +585,36 @@ class AndroidCrashMonitor:
         
         self.stats.devices_monitored = [d.serial for d in self.monitored_devices]
         
-        # Display discovered devices
+        # Display discovered devices  
         if self.monitored_devices:
-            self.console.success(f"Found {len(self.monitored_devices)} device(s) to monitor:")
-            self.console.display_devices(self.monitored_devices)
+            device_names = [d.display_name for d in self.monitored_devices]
+            self.console.success(f"Monitoring: {', '.join(device_names)}")
+            self.console.info("🔄 Waiting for live logs... (Press Ctrl+C to stop)")
         else:
             available_devices = [d for d in all_devices if d.is_online]
             if available_devices:
                 self.console.warning("No devices match the specified criteria")
-                self.console.info("Available devices:")
-                self.console.display_devices(available_devices)
             else:
                 self.console.error("No online devices found")
     
     async def _monitor_device(self, device: AndroidDevice) -> None:
         """Monitor a single device for crashes."""
         device_name = device.display_name
-        self.console.info(f"Starting monitoring for {device_name}")
         
         retry_count = 0
         max_retries = 5
         
         while self.is_running and retry_count < max_retries:
             try:
-                # Start logcat process
+                # Start logcat process - empty filters means capture all logs
+                filters = self.config.default_filters if self.config.default_filters else None
                 process = await self.adb_manager.start_logcat(
                     device_serial=device.serial,
-                    filters=self.config.default_filters
+                    filters=filters
                 )
                 
                 self.active_processes[device.serial] = process
                 retry_count = 0  # Reset retry count on success
-                
-                self.console.success(f"Connected to {device_name}")
                 
                 # Process log lines
                 async for log_line in self._read_logcat_stream(process):
@@ -644,12 +639,15 @@ class AndroidCrashMonitor:
                 retry_count += 1
                 self.stats.reconnection_count += 1
                 
+                # Log detailed error information for debugging
+                logger.error(f"Device monitoring error for {device_name}: {type(e).__name__}: {e}")
+                
                 if retry_count >= max_retries:
                     self.console.error(f"Max retries reached for {device_name}: {e}")
                     break
                 
                 self.console.warning(
-                    f"Connection lost to {device_name}. Retrying {retry_count}/{max_retries}..."
+                    f"Connection lost to {device_name}. Retrying {retry_count}/{max_retries}... (Error: {type(e).__name__})"
                 )
                 await asyncio.sleep(2 ** retry_count)  # Exponential backoff
             
@@ -668,7 +666,7 @@ class AndroidCrashMonitor:
                             pass
                     del self.active_processes[device.serial]
         
-        self.console.info(f"Monitoring stopped for {device_name}")
+        # Device monitoring stopped
     
     async def _read_logcat_stream(self, process: asyncio.subprocess.Process) -> AsyncGenerator[str, None]:
         """Read lines from logcat process stream."""
@@ -682,15 +680,19 @@ class AndroidCrashMonitor:
                 if not line:  # EOF
                     break
                 
-                yield line.decode('utf-8', errors='replace').strip()
+                # Line is already bytes, decode it
+                decoded_line = line.decode('utf-8', errors='replace').strip() if isinstance(line, bytes) else line.strip()
+                yield decoded_line
                 
             except asyncio.TimeoutError:
                 # Check if process is still running
                 if process.returncode is not None:
+                    logger.warning(f"Logcat process died with return code: {process.returncode}")
                     break
                 continue
             except Exception as e:
-                logger.warning(f"Error reading logcat stream: {e}")
+                logger.error(f"Error reading logcat stream: {type(e).__name__}: {e}")
+                logger.error(f"Process return code: {process.returncode}")
                 break
     
     async def _handle_crash(self, crash: CrashEvent) -> None:
@@ -736,43 +738,40 @@ class AndroidCrashMonitor:
                 color = sev_color
                 break
         
-        self.console.print(f"\n[{color}]🚨 CRASH DETECTED[/{color}]")
-        self.console.print(f"[bold]{crash.title}[/bold]")
-        self.console.print(f"Time: {crash.timestamp}")
-        self.console.print(f"Type: {crash.crash_type.value.upper()}")
-        self.console.print(f"Severity: {crash.severity}/10")
-        self.console.print(f"Device: {crash.device_serial}")
+        # More concise crash display
+        app_info = f" in {crash.app_package}" if crash.app_package else f" ({crash.app_name})" if crash.app_name else ""
+        stack_info = f" +{len(crash.stack_trace)} stack lines" if crash.stack_trace else ""
         
-        if crash.app_package:
-            self.console.print(f"App: {crash.app_package}")
-        
-        self.console.print(f"Description: {crash.description}")
-        
-        if crash.stack_trace:
-            self.console.print(f"Stack trace ({len(crash.stack_trace)} lines):")
-            for i, line in enumerate(crash.stack_trace[:3]):  # Show first 3 lines
-                self.console.print(f"  {line}")
-            if len(crash.stack_trace) > 3:
-                self.console.print(f"  ... ({len(crash.stack_trace) - 3} more lines)")
-        
-        self.console.print("-" * 60)
+        self.console.print(
+            f"[{color}]🚨 {crash.crash_type.value.upper()}[/{color}] "
+            f"[bold]{crash.title.split(' (')[0]}[/bold]{app_info} "
+            f"(severity: {crash.severity}/10{stack_info})"
+        )
     
     async def _save_crash(self, crash: CrashEvent) -> None:
         """Save crash data to file."""
         try:
-            # Create filename with timestamp
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"crash_{timestamp}_{crash.crash_type.value}_{crash.device_serial}.json"
+            # Create filename with timestamp including milliseconds to prevent collisions
+            now = datetime.now()
+            timestamp = now.strftime("%Y%m%d_%H%M%S")
+            milliseconds = now.microsecond // 1000
+            filename = f"crash_{timestamp}_{milliseconds:03d}_{crash.crash_type.value}_{crash.device_serial}.json"
             filepath = self.output_dir / filename
+            
+            # Ensure output directory exists
+            self.output_dir.mkdir(parents=True, exist_ok=True)
             
             # Save crash data
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(crash.to_dict(), f, indent=2, default=str)
             
-            logger.info(f"Crash saved to {filepath}")
+            # Log successful save for debugging
+            logger.debug(f"Crash saved: {filepath}")
             
         except Exception as e:
-            logger.error(f"Failed to save crash: {e}")
+            logger.error(f"Failed to save crash to {filepath}: {type(e).__name__}: {e}")
+            logger.error(f"Output directory exists: {self.output_dir.exists()}")
+            logger.error(f"Output directory writable: {os.access(self.output_dir, os.W_OK)}")
     
     async def _update_stats_periodically(self) -> None:
         """Update monitoring statistics periodically."""

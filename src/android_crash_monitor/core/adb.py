@@ -236,7 +236,7 @@ class ADBManager:
     async def start_logcat(self, device_serial: Optional[str] = None, 
                           filters: Optional[List[str]] = None) -> asyncio.subprocess.Process:
         """Start logcat monitoring."""
-        cmd = ["logcat", "-v", "threadtime"]
+        cmd = ["logcat", "-v", "threadtime", "-T", "1"]  # -T 1 starts from now, not historical logs
         
         if filters:
             cmd.extend(filters)
