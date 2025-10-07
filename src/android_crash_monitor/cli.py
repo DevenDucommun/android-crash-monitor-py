@@ -247,8 +247,8 @@ def devices(ctx, detailed: bool, refresh: bool):
 @click.option('--search', '-s',
               help='Search logs for text')
 @click.option('--export', '-e',
-              type=click.Choice(['json', 'csv', 'html', 'txt']),
-              help='Export logs to format')
+              type=click.Choice(['json', 'csv', 'html', 'txt', 'md', 'compact-json', 'detailed-json', 'excel-csv']),
+              help='Export crash data to specified format')
 @click.option('--output', '-o',
               type=click.Path(path_type=Path),
               help='Output file for export')
@@ -270,9 +270,85 @@ def logs(ctx, filter: Optional[str], last: Optional[str],
     config = ctx.obj['config']
     ui = ctx.obj['console']
     
-    # TODO: Implement log viewer functionality
-    ui.info("Log viewer functionality coming soon!")
-    ui.warning("This will be implemented in the next phase.")
+    from pathlib import Path
+    from .exporters import get_exporter, get_available_formats, ExportData
+    from .exporters.base import find_crash_files, load_crashes_from_files
+    
+    try:
+        # If export is requested, handle export
+        if export:
+            ui.info(f"Exporting logs in {export} format...")
+            
+            # Find crash files in the config output directory
+            config_output_dir = Path(config.output_dir) if config else Path.home() / "android_logs"
+            ui.info(f"Searching for crash files in: {config_output_dir}")
+            
+            crash_files = find_crash_files(config_output_dir)
+            
+            if not crash_files:
+                ui.warning("No crash files found to export")
+                ui.info("Run 'acm monitor' first to generate crash data")
+                return
+            
+            ui.success(f"Found {len(crash_files)} crash file(s)")
+            
+            # Load crash data
+            ui.info("Loading crash data...")
+            crashes = load_crashes_from_files(crash_files)
+            
+            # Create export data container
+            export_data = ExportData()
+            export_data.add_crashes(crashes)
+            export_data.add_metadata("source", "Android Crash Monitor CLI")
+            export_data.add_metadata("crash_files_count", len(crash_files))
+            
+            # Determine output file
+            if output:
+                output_path = Path(output)
+            else:
+                # Generate default filename
+                exporter = get_exporter(export)
+                filename = exporter.generate_filename("crash_export")
+                output_path = Path.cwd() / filename
+            
+            # Export data
+            exporter = get_exporter(export)
+            exporter.export(export_data, output_path)
+            
+            ui.success(f"Export completed: {output_path}")
+            ui.info(f"Format: {exporter.format_name}")
+            ui.info(f"File size: {output_path.stat().st_size:,} bytes")
+            
+        else:
+            # Show log viewer info (placeholder for now)
+            ui.info("Log Viewer Features:")
+            ui.info("• Use --export [format] to export crash data")
+            ui.info("• Use --filter [type] to filter by crash type")
+            ui.info("• Use --search [text] to search in crash descriptions")
+            ui.info("• Use --last [period] for time-based filtering")
+            
+            available_formats = get_available_formats()
+            ui.info(f"• Available export formats: {', '.join(available_formats)}")
+            
+            # Show summary of available data
+            if config:
+                config_output_dir = Path(config.output_dir)
+                if config_output_dir.exists():
+                    crash_files = find_crash_files(config_output_dir)
+                    if crash_files:
+                        ui.success(f"Found {len(crash_files)} crash file(s) in {config_output_dir}")
+                        ui.info("Use --export json to export them to a report")
+                    else:
+                        ui.warning("No crash files found")
+                        ui.info("Run 'acm monitor' to start collecting crash data")
+                else:
+                    ui.warning("Output directory not found")
+                    ui.info("Run 'acm setup' to configure the output directory")
+    
+    except Exception as e:
+        ui.error(f"Export failed: {e}")
+        logger.exception("Export command failed")
+        sys.exit(1)
 
 
 @cli.command()
