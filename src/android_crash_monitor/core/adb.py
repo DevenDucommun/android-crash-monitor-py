@@ -1,410 +1,257 @@
 #!/usr/bin/env python3
 """
-ADB Management Module
+ADB Manager for Android Crash Monitor
 
 Handles Android Debug Bridge (ADB) operations including:
-- ADB detection and validation
+- ADB detection and validation  
 - Device discovery and management
-- ADB command execution
-- Version checking and updates
+- Command execution with proper error handling
+- Async operations support
 """
 
-import re
+import asyncio
 import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Dict, Any
-from ..ui.console import ACMConsole
+from typing import List, Optional, Dict, Any, Union
+import platform
+import re
+
+
+class ADBNotFoundError(Exception):
+    """Raised when ADB cannot be found on the system."""
+    pass
+
+
+class ADBError(Exception):
+    """General ADB operation error."""
+    pass
 
 
 @dataclass
-class ADBInfo:
-    """Information about ADB installation."""
-    installed: bool = False
-    path: Optional[Path] = None
-    version: Optional[str] = None
-    build_info: Optional[str] = None
+class CommandResult:
+    """Result of an ADB command execution."""
+    returncode: int
+    stdout: str
+    stderr: str
     
-    
+    @property
+    def success(self) -> bool:
+        return self.returncode == 0
+
+
 @dataclass
 class AndroidDevice:
     """Information about an Android device."""
-    id: str
-    status: str
+    serial: str
+    status: str  # device, unauthorized, offline, etc.
     model: Optional[str] = None
     product: Optional[str] = None
     device: Optional[str] = None
     transport_id: Optional[str] = None
     
     @property
-    def is_available(self) -> bool:
-        """Check if device is available for use."""
-        return self.status == 'device'
+    def is_online(self) -> bool:
+        """Check if device is online and ready."""
+        return self.status == "device"
     
     @property
     def display_name(self) -> str:
-        """Get a human-readable device name."""
+        """Get human-readable device name."""
         if self.model:
-            return f"{self.model} ({self.id})"
-        return self.id
+            return f"{self.model} ({self.serial})"
+        return self.serial
 
 
 class ADBManager:
     """Manages ADB operations and device interactions."""
     
-    def __init__(self, console: ACMConsole):
-        self.console = console
-        self._adb_path: Optional[Path] = None
-        self._version_cache: Optional[str] = None
+    def __init__(self):
+        self.adb_path: Optional[Path] = None
+        self._detect_adb()
     
-    def detect_existing(self) -> ADBInfo:
-        """Detect existing ADB installation."""
-        info = ADBInfo()
-        
-        # First check if adb is in PATH
-        adb_path = shutil.which('adb')
-        if adb_path:
-            info.installed = True
-            info.path = Path(adb_path)
-            info.version = self._get_version(Path(adb_path))
-            return info
+    def _detect_adb(self) -> None:
+        """Detect ADB installation on the system."""
+        # First check PATH
+        adb_cmd = shutil.which('adb')
+        if adb_cmd:
+            self.adb_path = Path(adb_cmd)
+            return
         
         # Check common installation paths
         common_paths = self._get_common_adb_paths()
-        
         for path in common_paths:
-            if path.exists() and path.is_file():
-                try:
-                    version = self._get_version(path)
-                    if version:
-                        info.installed = True
-                        info.path = path
-                        info.version = version
-                        return info
-                except Exception:
-                    continue
+            if path.exists() and self._is_valid_adb(path):
+                self.adb_path = path
+                return
         
-        return info
-    
-    def set_adb_path(self, path: Path) -> bool:
-        """Set the ADB path and validate it."""
-        if not path.exists():
-            return False
-            
-        version = self._get_version(path)
-        if version:
-            self._adb_path = path
-            self._version_cache = version
-            return True
-        return False
-    
-    def get_adb_path(self) -> Optional[Path]:
-        """Get the current ADB path."""
-        if self._adb_path:
-            return self._adb_path
-            
-        # Try to detect if not set
-        info = self.detect_existing()
-        if info.installed:
-            self._adb_path = info.path
-            return self._adb_path
-            
-        return None
-    
-    def list_devices(self, refresh: bool = False) -> List[AndroidDevice]:
-        """List all connected Android devices."""
-        adb_path = self.get_adb_path()
-        if not adb_path:
-            raise ADBError("ADB not found. Please install ADB first.")
-        
-        try:
-            # Kill and restart ADB server for fresh device list
-            if refresh:
-                self._run_adb_command(['kill-server'], check_result=False)
-                self._run_adb_command(['start-server'], check_result=False)
-            
-            result = self._run_adb_command(['devices', '-l'])
-            devices = self._parse_device_list(result.stdout)
-            
-            # Get additional device information
-            for device in devices:
-                if device.is_available:
-                    self._populate_device_info(device)
-            
-            return devices
-            
-        except subprocess.SubprocessError as e:
-            raise ADBError(f"Failed to list devices: {e}")
-    
-    def get_device_info(self, device_id: str) -> Optional[AndroidDevice]:
-        """Get detailed information about a specific device."""
-        devices = self.list_devices()
-        for device in devices:
-            if device.id == device_id:
-                return device
-        return None
-    
-    def execute_command(self, device_id: Optional[str], command: List[str], 
-                       timeout: int = 30) -> subprocess.CompletedProcess:
-        """Execute an ADB command on a specific device."""
-        adb_path = self.get_adb_path()
-        if not adb_path:
-            raise ADBError("ADB not found. Please install ADB first.")
-        
-        cmd = [str(adb_path)]
-        
-        if device_id:
-            cmd.extend(['-s', device_id])
-            
-        cmd.extend(command)
-        
-        try:
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-                check=True
-            )
-            return result
-            
-        except subprocess.TimeoutExpired:
-            raise ADBError(f"Command timed out after {timeout} seconds")
-        except subprocess.CalledProcessError as e:
-            raise ADBError(f"ADB command failed: {e.stderr or e.stdout}")
-    
-    def start_logcat(self, device_id: Optional[str], 
-                    filters: Optional[List[str]] = None,
-                    buffer: Optional[str] = None,
-                    format: str = 'threadtime') -> subprocess.Popen:
-        """Start logcat monitoring for a device."""
-        cmd = ['logcat']
-        
-        if buffer:
-            cmd.extend(['-b', buffer])
-            
-        cmd.extend(['-v', format])
-        
-        if filters:
-            cmd.extend(filters)
-        
-        try:
-            process = subprocess.Popen(
-                [str(self.get_adb_path())] + 
-                (['-s', device_id] if device_id else []) + cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1,
-                universal_newlines=True
-            )
-            return process
-            
-        except Exception as e:
-            raise ADBError(f"Failed to start logcat: {e}")
-    
-    def check_device_connection(self, device_id: str) -> bool:
-        """Check if a device is properly connected."""
-        try:
-            result = self.execute_command(device_id, ['get-state'], timeout=10)
-            return result.stdout.strip() == 'device'
-        except ADBError:
-            return False
-    
-    def get_device_properties(self, device_id: str, 
-                            properties: List[str]) -> Dict[str, str]:
-        """Get specific properties from a device."""
-        result = {}
-        
-        try:
-            for prop in properties:
-                cmd_result = self.execute_command(
-                    device_id, 
-                    ['shell', 'getprop', prop],
-                    timeout=10
-                )
-                result[prop] = cmd_result.stdout.strip()
-                
-        except ADBError as e:
-            self.console.warning(f"Could not get device properties: {e}")
-            
-        return result
-    
-    def _get_version(self, adb_path: Path) -> Optional[str]:
-        """Get ADB version from the binary."""
-        try:
-            result = subprocess.run(
-                [str(adb_path), 'version'],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            
-            if result.returncode == 0:
-                # Parse version from output
-                # Example: "Android Debug Bridge version 1.0.41"
-                match = re.search(r'version\s+([\d.]+)', result.stdout)
-                if match:
-                    return match.group(1)
-                    
-                # Fallback: return first line
-                first_line = result.stdout.split('\n')[0].strip()
-                if first_line:
-                    return first_line
-                    
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-            pass
-            
-        return None
+        raise ADBNotFoundError("ADB not found on system")
     
     def _get_common_adb_paths(self) -> List[Path]:
-        """Get common ADB installation paths."""
-        import platform
-        
+        """Get common ADB installation paths based on OS."""
         paths = []
         system = platform.system()
         
-        if system == 'Darwin':  # macOS
+        if system == "Darwin":  # macOS
             paths.extend([
-                Path('/usr/local/bin/adb'),
-                Path('/opt/homebrew/bin/adb'),
-                Path.home() / 'Library/Android/sdk/platform-tools/adb',
-                Path('/Applications/Android Studio.app/Contents/bin/adb'),
+                Path("/usr/local/bin/adb"),
+                Path("/opt/homebrew/bin/adb"),
+                Path.home() / "Library/Android/sdk/platform-tools/adb",
+                Path("/Applications/Android Studio.app/Contents/bin/adb"),
             ])
-        elif system == 'Linux':
+        elif system == "Linux":
             paths.extend([
-                Path('/usr/bin/adb'),
-                Path('/usr/local/bin/adb'),
-                Path.home() / '.local/bin/adb',
-                Path.home() / 'Android/Sdk/platform-tools/adb',
-                Path('/opt/android-sdk/platform-tools/adb'),
+                Path("/usr/bin/adb"),
+                Path("/usr/local/bin/adb"),
+                Path.home() / ".local/bin/adb",
+                Path.home() / "Android/Sdk/platform-tools/adb",
+                Path("/opt/android-sdk/platform-tools/adb"),
             ])
-        elif system == 'Windows':
+        elif system == "Windows":
             paths.extend([
-                Path.home() / 'AppData/Local/Android/Sdk/platform-tools/adb.exe',
-                Path('C:/Android/Sdk/platform-tools/adb.exe'),
-                Path('C:/Program Files/Android/Android Studio/bin/adb.exe'),
+                Path.home() / "AppData/Local/Android/Sdk/platform-tools/adb.exe",
+                Path("C:/Android/Sdk/platform-tools/adb.exe"),
+                Path("C:/Program Files/Android/Android Studio/bin/adb.exe"),
             ])
         
         return paths
     
-    def _run_adb_command(self, command: List[str], check_result: bool = True,
-                        timeout: int = 30) -> subprocess.CompletedProcess:
-        """Run an ADB command."""
-        adb_path = self.get_adb_path()
-        if not adb_path:
-            raise ADBError("ADB not found")
-        
-        cmd = [str(adb_path)] + command
-        
+    def _is_valid_adb(self, path: Path) -> bool:
+        """Check if the given path is a valid ADB executable."""
         try:
             result = subprocess.run(
-                cmd,
+                [str(path), "version"],
                 capture_output=True,
                 text=True,
-                timeout=timeout,
-                check=check_result
+                timeout=5
             )
-            return result
-            
-        except subprocess.TimeoutExpired:
-            raise ADBError(f"Command timed out: {' '.join(command)}")
-        except subprocess.CalledProcessError as e:
-            if check_result:
-                raise ADBError(f"Command failed: {e.stderr or e.stdout}")
-            return e
+            return result.returncode == 0 and "Android Debug Bridge" in result.stdout
+        except Exception:
+            return False
     
-    def _parse_device_list(self, output: str) -> List[AndroidDevice]:
-        """Parse device list output from 'adb devices -l'."""
-        devices = []
+    async def run_command(self, command: List[str], timeout: int = 30) -> CommandResult:
+        """Run an ADB command asynchronously."""
+        if not self.adb_path:
+            raise ADBNotFoundError("ADB not available")
         
-        lines = output.strip().split('\n')
-        for line in lines[1:]:  # Skip header line
+        cmd = [str(self.adb_path)] + command
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            
+            stdout, stderr = await asyncio.wait_for(
+                process.communicate(), 
+                timeout=timeout
+            )
+            
+            return CommandResult(
+                returncode=process.returncode,
+                stdout=stdout.decode() if stdout else "",
+                stderr=stderr.decode() if stderr else ""
+            )
+            
+        except asyncio.TimeoutError:
+            raise ADBError(f"Command timed out after {timeout}s: {' '.join(command)}")
+        except Exception as e:
+            raise ADBError(f"Failed to execute command: {e}")
+    
+    async def list_devices(self) -> List[AndroidDevice]:
+        """List all connected Android devices."""
+        result = await self.run_command(["devices", "-l"])
+        
+        if not result.success:
+            raise ADBError(f"Failed to list devices: {result.stderr}")
+        
+        devices = []
+        lines = result.stdout.strip().split("\n")
+        
+        for line in lines[1:]:  # Skip "List of devices attached" header
             line = line.strip()
             if not line:
                 continue
-                
-            # Parse device line
-            # Format: "device_id status product:... model:... device:... transport_id:..."
-            parts = line.split(None, 1)
-            if len(parts) < 2:
-                continue
-                
-            device_id = parts[0]
-            rest = parts[1]
             
-            # Split status and properties
-            status_and_props = rest.split(None, 1)
-            status = status_and_props[0]
-            
-            device = AndroidDevice(id=device_id, status=status)
-            
-            # Parse properties if available
-            if len(status_and_props) > 1:
-                props_str = status_and_props[1]
-                props = self._parse_device_properties(props_str)
-                
-                device.model = props.get('model')
-                device.product = props.get('product')
-                device.device = props.get('device')
-                device.transport_id = props.get('transport_id')
-            
-            devices.append(device)
-            
+            device = self._parse_device_line(line)
+            if device:
+                devices.append(device)
+        
         return devices
     
+    def _parse_device_line(self, line: str) -> Optional[AndroidDevice]:
+        """Parse a single device line from adb devices output."""
+        # Format: "serial status product:... model:... device:... transport_id:..."
+        parts = line.split(None, 1)
+        if len(parts) < 2:
+            return None
+        
+        serial = parts[0]
+        rest = parts[1]
+        
+        # Split status and properties
+        status_and_props = rest.split(None, 1)
+        status = status_and_props[0]
+        
+        device = AndroidDevice(serial=serial, status=status)
+        
+        # Parse properties if available
+        if len(status_and_props) > 1:
+            props_str = status_and_props[1]
+            props = self._parse_device_properties(props_str)
+            
+            device.model = props.get("model")
+            device.product = props.get("product")
+            device.device = props.get("device")
+            device.transport_id = props.get("transport_id")
+        
+        return device
+    
     def _parse_device_properties(self, props_str: str) -> Dict[str, str]:
-        """Parse device properties from device list output."""
+        """Parse device properties from adb devices -l output."""
         props = {}
         
-        # Properties are in format: "key:value key:value ..."
+        # Properties format: "key:value key:value ..."
         for part in props_str.split():
-            if ':' in part:
-                key, value = part.split(':', 1)
+            if ":" in part:
+                key, value = part.split(":", 1)
                 props[key] = value
-                
+        
         return props
     
-    def _populate_device_info(self, device: AndroidDevice) -> None:
-        """Populate additional device information."""
-        if not device.model:
-            try:
-                properties = self.get_device_properties(
-                    device.id, 
-                    ['ro.product.model', 'ro.product.manufacturer']
-                )
-                
-                model = properties.get('ro.product.model', '').strip()
-                manufacturer = properties.get('ro.product.manufacturer', '').strip()
-                
-                if manufacturer and model:
-                    device.model = f"{manufacturer} {model}"
-                elif model:
-                    device.model = model
-                    
-            except Exception:
-                # If we can't get properties, use what we have
-                pass
-
-
-class ADBError(Exception):
-    """ADB-related errors."""
-    pass
-
-
-# Convenience functions
-def detect_adb() -> ADBInfo:
-    """Convenience function to detect ADB."""
-    from ..ui.console import ACMConsole
-    console = ACMConsole()
-    manager = ADBManager(console)
-    return manager.detect_existing()
-
-
-def list_android_devices() -> List[AndroidDevice]:
-    """Convenience function to list Android devices."""
-    from ..ui.console import ACMConsole
-    console = ACMConsole()
-    manager = ADBManager(console)
-    return manager.list_devices()
+    async def get_device_property(self, device_serial: str, property_name: str) -> str:
+        """Get a specific property from a device."""
+        result = await self.run_command([
+            "-s", device_serial,
+            "shell", "getprop", property_name
+        ])
+        
+        if result.success:
+            return result.stdout.strip()
+        else:
+            raise ADBError(f"Failed to get property {property_name}: {result.stderr}")
+    
+    async def start_logcat(self, device_serial: Optional[str] = None, 
+                          filters: Optional[List[str]] = None) -> asyncio.subprocess.Process:
+        """Start logcat monitoring."""
+        cmd = ["logcat", "-v", "threadtime"]
+        
+        if filters:
+            cmd.extend(filters)
+        
+        full_cmd = [str(self.adb_path)]
+        if device_serial:
+            full_cmd.extend(["-s", device_serial])
+        full_cmd.extend(cmd)
+        
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *full_cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            return process
+        except Exception as e:
+            raise ADBError(f"Failed to start logcat: {e}")

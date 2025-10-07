@@ -32,7 +32,7 @@ class SystemInfo:
 class MonitoringConfig(BaseModel):
     """Monitoring configuration settings."""
     auto_start: bool = True
-    log_level: str = Field(default="INFO", regex="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
+    log_level: str = Field(default="INFO", pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$")
     max_log_size: str = "100MB"
     retention_days: int = Field(default=30, ge=1, le=365)
     buffer_size: int = Field(default=1024, ge=256, le=8192)
@@ -44,7 +44,7 @@ class MonitoringConfig(BaseModel):
     
     # Export settings
     auto_export: bool = False
-    export_format: str = Field(default="json", regex="^(json|csv|html|txt)$")
+    export_format: str = Field(default="json", pattern="^(json|csv|html|txt)$")
     export_on_crash: bool = True
 
 

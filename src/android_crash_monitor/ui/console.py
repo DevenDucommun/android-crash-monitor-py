@@ -7,7 +7,7 @@ Includes progress bars, tables, panels, and colored output for enhanced UX.
 """
 
 from contextlib import contextmanager
-from typing import List, Optional, Any
+from typing import List, Optional, Any, TYPE_CHECKING
 import sys
 
 from rich.console import Console
@@ -19,11 +19,12 @@ from rich.live import Live
 from rich.layout import Layout
 from rich.align import Align
 
-from ..core.adb import AndroidDevice
+if TYPE_CHECKING:
+    from ..core.adb import AndroidDevice
 
 
-class ACMConsole:
-    """Android Crash Monitor console interface with Rich formatting."""
+class ConsoleUI:
+    """Modern console interface with Rich formatting."""
     
     def __init__(self, quiet: bool = False, no_color: bool = False):
         self.console = Console(
@@ -133,7 +134,22 @@ class ACMConsole:
         
         self.print(table)
     
-    def display_devices(self, devices: List[AndroidDevice], detailed: bool = False) -> None:
+    def header(self, message: str) -> None:
+        """Print a section header."""
+        self.print(f"\n[bold blue]{'=' * 60}[/bold blue]")
+        self.print(f"[bold blue]{message}[/bold blue]")
+        self.print(f"[bold blue]{'=' * 60}[/bold blue]\n")
+    
+    @contextmanager
+    def spinner(self, message: str):
+        """Show a spinner with message."""
+        if self.quiet:
+            yield
+        else:
+            with self.console.status(f"[bold blue]{message}[/bold blue]", spinner="dots"):
+                yield
+    
+    def display_devices(self, devices: List['AndroidDevice'], detailed: bool = False) -> None:
         """Display Android devices in a table."""
         if not devices:
             self.warning("No Android devices found")
@@ -295,9 +311,9 @@ class ACMConsole:
 
 
 # Module-level convenience functions
-def get_console(quiet: bool = False) -> ACMConsole:
+def get_console(quiet: bool = False) -> ConsoleUI:
     """Get a console instance."""
-    return ACMConsole(quiet=quiet)
+    return ConsoleUI(quiet=quiet)
 
 
 def print_success(message: str) -> None:

@@ -13,18 +13,20 @@ import click
 from rich.console import Console
 from rich.traceback import install
 
-from .core.config import Config, ConfigManager
-from .setup.wizard import SetupWizard
-from .core.monitor import CrashMonitor
-from .core.devices import DeviceManager
-from .ui.console import ACMConsole
-from .utils.logger import setup_logging
+from .core.config import ConfigManager, MonitoringConfig
+from .setup.setup import run_setup
+from .core.adb import ADBManager
+from .ui.console import ConsoleUI
+from .utils.logger import get_logger, setup_logging
+
+logger = get_logger(__name__)
 
 # Install rich traceback handler for better error display
 install(show_locals=True)
 
 # Global console instance
 console = Console()
+ui = ConsoleUI()
 
 
 @click.group(invoke_without_command=True)
@@ -58,22 +60,26 @@ def cli(ctx, config: Optional[Path], profile: str, verbose: int, quiet: bool):
     setup_logging(log_level)
     
     # Initialize configuration
-    config_manager = ConfigManager(config_file=config)
+    config_manager = ConfigManager()
+    
+    # Check if setup is needed
+    setup_needed = False
     try:
-        app_config = config_manager.load_profile(profile)
-    except Exception as e:
-        console.print(f"[red]Error loading configuration: {e}[/red]")
-        console.print("[yellow]Run 'acm setup' to configure the application[/yellow]")
-        sys.exit(1)
+        app_config = config_manager.get_active_config()
+    except Exception:
+        setup_needed = True
+        app_config = None
     
     # Store in context for subcommands
     ctx.ensure_object(dict)
     ctx.obj['config'] = app_config
-    ctx.obj['console'] = ACMConsole(quiet=quiet)
+    ctx.obj['config_manager'] = config_manager
+    ctx.obj['console'] = ui
+    ctx.obj['quiet'] = quiet
     
     # If no subcommand provided, show help or run default action
     if ctx.invoked_subcommand is None:
-        if not app_config.setup_complete:
+        if setup_needed:
             console.print("[yellow]First time setup required. Running setup wizard...[/yellow]")
             ctx.invoke(setup)
         else:
@@ -82,12 +88,10 @@ def cli(ctx, config: Optional[Path], profile: str, verbose: int, quiet: bool):
 
 
 @cli.command()
-@click.option('--auto', is_flag=True, 
-              help='Run automatic setup with minimal prompts')
 @click.option('--force', is_flag=True,
               help='Force setup even if already configured')
 @click.pass_context
-def setup(ctx, auto: bool, force: bool):
+def setup(ctx, force: bool):
     """Run the interactive setup wizard.
     
     The setup wizard will:
@@ -97,25 +101,33 @@ def setup(ctx, auto: bool, force: bool):
     - Set up monitoring preferences
     - Test the complete workflow
     
-    Use --auto for minimal prompts, --force to reconfigure.
+    Use --force to reconfigure existing setup.
     """
-    config = ctx.obj['config']
-    ui = ctx.obj['console']
+    import asyncio
     
-    if config.setup_complete and not force:
-        ui.info("Setup already completed. Use --force to reconfigure.")
+    config = ctx.obj.get('config')
+    config_manager = ctx.obj['config_manager']
+    
+    # Check if setup already exists
+    if config and not force:
+        console.print("[yellow]Setup already completed. Use --force to reconfigure.[/yellow]")
         return
     
-    wizard = SetupWizard(config, ui, auto_mode=auto)
     try:
-        wizard.run()
-        ui.success("Setup completed successfully!")
+        success = asyncio.run(run_setup())
+        if success:
+            console.print("\n[green]✅ Setup completed successfully![/green]")
+            ctx.exit(0)
+        else:
+            console.print("\n[red]❌ Setup failed or was cancelled.[/red]")
+            ctx.exit(1)
     except KeyboardInterrupt:
-        ui.warning("Setup cancelled by user")
-        sys.exit(130)
+        console.print("\n[yellow]⚠️ Setup cancelled by user[/yellow]")
+        ctx.exit(130)
     except Exception as e:
-        ui.error(f"Setup failed: {e}")
-        sys.exit(1)
+        console.print(f"\n[red]❌ Setup error: {e}[/red]")
+        logger.exception("Setup command failed")
+        ctx.exit(1)
 
 
 @cli.command()
@@ -149,25 +161,13 @@ def monitor(ctx, device: Optional[str], output: Optional[Path],
     config = ctx.obj['config']
     ui = ctx.obj['console']
     
-    if not config.setup_complete:
+    if not config:
         ui.error("Setup not completed. Run 'acm setup' first.")
         sys.exit(1)
     
-    monitor_instance = CrashMonitor(config, ui)
-    
-    try:
-        monitor_instance.start(
-            device_id=device,
-            output_dir=output,
-            filters=list(filter),
-            duration=duration,
-            auto_export=auto_export
-        )
-    except KeyboardInterrupt:
-        ui.info("Monitoring stopped by user")
-    except Exception as e:
-        ui.error(f"Monitoring failed: {e}")
-        sys.exit(1)
+    # TODO: Implement monitor functionality
+    ui.info("Monitor functionality coming soon!")
+    ui.warning("This will be implemented in the next phase.")
 
 
 @cli.command()
@@ -182,14 +182,21 @@ def devices(ctx, detailed: bool, refresh: bool):
     Shows all Android devices connected via USB or network,
     with their current status and capabilities.
     """
+    import asyncio
+    
     config = ctx.obj['config']
     ui = ctx.obj['console']
     
-    device_manager = DeviceManager(config, ui)
+    if not config:
+        ui.error("Setup not completed. Run 'acm setup' first.")
+        sys.exit(1)
     
     try:
-        device_list = device_manager.list_devices(refresh=refresh)
-        ui.display_devices(device_list, detailed=detailed)
+        adb_manager = ADBManager()
+        device_list = asyncio.run(adb_manager.list_devices())
+        ui.display_devices(device_list)
+        if detailed:
+            ui.info("Detailed device information not yet implemented.")
     except Exception as e:
         ui.error(f"Failed to list devices: {e}")
         sys.exit(1)
@@ -228,8 +235,9 @@ def logs(ctx, filter: Optional[str], last: Optional[str],
     config = ctx.obj['config']
     ui = ctx.obj['console']
     
-    # Implementation would go here
+    # TODO: Implement log viewer functionality
     ui.info("Log viewer functionality coming soon!")
+    ui.warning("This will be implemented in the next phase.")
 
 
 @cli.command()
@@ -249,8 +257,28 @@ def config(ctx, profile: Optional[str], list_profiles: bool, edit: bool):
     config = ctx.obj['config']
     ui = ctx.obj['console']
     
-    # Implementation would go here
-    ui.info("Configuration management functionality coming soon!")
+    config_mgr = ctx.obj['config_manager']
+    
+    if list_profiles:
+        profiles = config_mgr.list_profiles()
+        if profiles:
+            ui.success(f"Available profiles: {', '.join(profiles)}")
+            ui.info(f"Active profile: {config_mgr.active_profile}")
+        else:
+            ui.warning("No profiles found. Run 'acm setup' to create one.")
+        return
+    
+    if edit:
+        ui.info("Configuration editing functionality coming soon!")
+        return
+    
+    # Show current config
+    if config:
+        ui.info(f"Active profile: {config_mgr.active_profile}")
+        ui.info(f"Config directory: {config_mgr.config_dir}")
+        # TODO: Display current configuration details
+    else:
+        ui.warning("No configuration found. Run 'acm setup' first.")
 
 
 def main():
