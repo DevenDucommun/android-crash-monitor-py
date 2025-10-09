@@ -49,9 +49,12 @@ def cli(ctx, config: Optional[Path], profile: str, verbose: int, quiet: bool):
     ACM provides intelligent setup, real-time monitoring, and rich log analysis
     for Android application development and debugging.
     
-    Examples:
+    Quick Start (Recommended):
+      acm start              # 🚀 One-command setup and monitoring
+    
+    Other Commands:
       acm setup              # Run interactive setup wizard
-      acm monitor            # Start monitoring default device
+      acm monitor            # Start monitoring (requires setup first)
       acm logs --last 1h     # Show logs from last hour
       acm devices            # List connected Android devices
     """
@@ -80,10 +83,14 @@ def cli(ctx, config: Optional[Path], profile: str, verbose: int, quiet: bool):
     # If no subcommand provided, show help or run default action
     if ctx.invoked_subcommand is None:
         if setup_needed:
-            console.print("[yellow]First time setup required. Running setup wizard...[/yellow]")
-            ctx.invoke(setup)
+            console.print("[yellow]💡 Tip: Use '[bold green]acm start[/bold green]' for one-command setup and monitoring![/yellow]")
+            console.print()
+            console.print(ctx.get_help())
         else:
-            # Show status or help
+            # Show status and help
+            console.print("[green]✅ Android Crash Monitor is configured and ready![/green]")
+            console.print("[yellow]💡 Use '[bold green]acm start[/bold green]' to begin monitoring immediately[/yellow]")
+            console.print()
             console.print(ctx.get_help())
 
 
@@ -128,6 +135,90 @@ def setup(ctx, force: bool):
         console.print(f"\n[red]❌ Setup error: {e}[/red]")
         logger.exception("Setup command failed")
         ctx.exit(1)
+
+
+@cli.command()
+@click.option('--setup', is_flag=True,
+              help='Run setup first if needed')
+@click.option('--duration', '-t',
+              help='Monitoring duration (e.g., 30m, 2h, 1d)')
+@click.pass_context
+def start(ctx, setup: bool, duration: Optional[str]):
+    """🚀 Start Android crash monitoring - simple one-command setup.
+    
+    This is the easiest way to start monitoring your Android device.
+    It automatically handles setup if needed and begins monitoring.
+    
+    Perfect for:
+    - First time users
+    - Quick debugging sessions
+    - When you just want to start monitoring immediately
+    
+    Examples:
+      acm start                      # Auto-setup and start monitoring
+      acm start --setup              # Force setup then start
+      acm start -t 1h                # Monitor for 1 hour then stop
+    """
+    config = ctx.obj.get('config')
+    ui = ctx.obj['console']
+    config_manager = ctx.obj['config_manager']
+    
+    # Welcome message
+    ui.success("🚀 Android Crash Monitor - Quick Start")
+    ui.info("One-command solution for Android crash monitoring\n")
+    
+    # Check if setup is needed or forced
+    needs_setup = setup or not config
+    
+    if needs_setup:
+        ui.info("⚙️  Running setup first...")
+        try:
+            import asyncio
+            success = asyncio.run(run_setup())
+            if not success:
+                ui.error("Setup failed. Cannot start monitoring.")
+                sys.exit(1)
+                
+            # Reload config after setup
+            config = config_manager.get_active_config()
+            ctx.obj['config'] = config
+            ui.success("✅ Setup completed!\n")
+            
+        except KeyboardInterrupt:
+            ui.warning("Setup cancelled. Cannot start monitoring.")
+            sys.exit(130)
+        except Exception as e:
+            ui.error(f"Setup failed: {e}")
+            sys.exit(1)
+    
+    # Start monitoring immediately
+    ui.info("🎯 Starting enhanced crash monitoring...")
+    
+    if duration:
+        ui.info(f"⏱️  Duration: {duration}")
+    
+    ui.info("📱 Monitoring all connected devices")
+    ui.info("🔍 Enhanced System.err detection enabled")
+    ui.info("⚠️  Press Ctrl+C to stop monitoring\n")
+    
+    # Invoke the monitor command with optimized settings
+    try:
+        from .core.monitor import AndroidCrashMonitor
+        import asyncio
+        
+        # Create and start the monitoring engine
+        monitor = AndroidCrashMonitor(config, ui)
+        
+        # Start monitoring (run in async context)
+        asyncio.run(monitor.start_monitoring(None))  # None = monitor all devices
+        
+    except KeyboardInterrupt:
+        ui.info("\n✅ Monitoring stopped by user")
+        ui.info("📊 Check the output directory for crash reports")
+    except Exception as e:
+        ui.error(f"Monitoring failed: {e}")
+        logger.exception("Start command failed")
+        sys.exit(1)
 
 
 @cli.command()
