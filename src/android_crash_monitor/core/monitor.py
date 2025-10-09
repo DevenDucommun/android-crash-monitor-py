@@ -500,6 +500,11 @@ class AndroidCrashMonitor:
         self.monitored_devices: List[AndroidDevice] = []
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
         
+        # UX improvements
+        self.last_reminder_time = 0
+        self.last_stats_display = 0
+        self.crash_count_since_last_reminder = 0
+        
         # Statistics
         self.stats = MonitoringStats(
             session_id=self.session_id,
@@ -524,8 +529,8 @@ class AndroidCrashMonitor:
         # Event handlers
         self.crash_handlers: List[Callable[[CrashEvent], None]] = []
         
-        # Graceful shutdown
-        self.shutdown_event = asyncio.Event()
+        # Graceful shutdown (will be initialized when monitoring starts)
+        self.shutdown_event = None
         
     def add_crash_handler(self, handler: Callable[[CrashEvent], None]):
         """Add a crash event handler."""
@@ -538,6 +543,9 @@ class AndroidCrashMonitor:
         
         self.start_time = datetime.now()
         self.stats.start_time = self.start_time.isoformat()
+        
+        # Initialize async components now that we have an event loop
+        self.shutdown_event = asyncio.Event()
         
         try:
             # Discover devices to monitor
@@ -562,6 +570,10 @@ class AndroidCrashMonitor:
             stats_task = asyncio.create_task(self._update_stats_periodically())
             tasks.append(stats_task)
             
+            # Start periodic reminder task
+            reminder_task = asyncio.create_task(self._show_periodic_reminders())
+            tasks.append(reminder_task)
+            
             # Wait for shutdown or task completion
             await asyncio.gather(*tasks, return_exceptions=True)
             
@@ -570,6 +582,9 @@ class AndroidCrashMonitor:
             logger.exception("Monitoring failed")
         finally:
             await self._cleanup()
+            
+            # Offer analysis after monitoring stops
+            await self._offer_post_monitoring_analysis()
     
     async def stop_monitoring(self) -> None:
         """Stop monitoring gracefully."""
@@ -578,7 +593,8 @@ class AndroidCrashMonitor:
         
         self.console.info("Stopping monitoring...")
         self.is_running = False
-        self.shutdown_event.set()
+        if self.shutdown_event:
+            self.shutdown_event.set()
         
         # Stop all logcat processes
         for device_serial, process in self.active_processes.items():
@@ -695,6 +711,44 @@ class AndroidCrashMonitor:
         
         # Device monitoring stopped
     
+    async def _offer_post_monitoring_analysis(self) -> None:
+        """Offer to run analysis immediately after monitoring stops."""
+        try:
+            if self.stats.total_crashes == 0:
+                self.console.success("\n🎉 No crashes detected during monitoring session")
+                return
+                
+            self.console.info(f"\n📊 Monitoring complete - {self.stats.total_crashes} crashes captured")
+            
+            # Try to run quick analysis automatically
+            try:
+                from ..analysis.crash_analyzer import CrashAnalyzer
+                from ..analysis.report_generator import ReportGenerator
+                
+                self.console.info("🔍 Running quick analysis...")
+                
+                analyzer = CrashAnalyzer(Path(self.config.output_dir))
+                crash_count = analyzer.load_crashes()
+                
+                if crash_count > 0:
+                    report = analyzer.generate_analysis_report()
+                    generator = ReportGenerator()
+                    summary = generator.generate_summary_report(report)
+                    
+                    # Show summary
+                    self.console.success(f"\n{summary}")
+                    self.console.info("\n💡 For detailed analysis, run: python3 -m android_crash_monitor.cli analyze")
+                else:
+                    self.console.info("No crash files found for analysis")
+                    
+            except Exception as e:
+                logger.warning(f"Quick analysis failed: {e}")
+                self.console.warning(f"Quick analysis unavailable: {e}")
+                self.console.info("💡 For detailed analysis, run: python3 -m android_crash_monitor.cli analyze")
+                
+        except Exception as e:
+            logger.error(f"Post-monitoring analysis failed: {e}")
+    
     async def _read_logcat_stream(self, process: asyncio.subprocess.Process) -> AsyncGenerator[str, None]:
         """Read lines from logcat process stream."""
         while True:
@@ -726,6 +780,7 @@ class AndroidCrashMonitor:
         """Handle a detected crash event."""
         # Update statistics
         self.stats.total_crashes += 1
+        self.crash_count_since_last_reminder += 1
         
         crash_type_str = crash.crash_type.value
         self.stats.crashes_by_type[crash_type_str] = (
@@ -737,8 +792,13 @@ class AndroidCrashMonitor:
                 self.stats.crashes_by_app.get(crash.app_package, 0) + 1
             )
         
-        # Display crash to user
-        self._display_crash(crash)
+        # Display crash to user (with throttling for rapid events)
+        current_time = time.time()
+        if current_time - self.last_stats_display > 2.0:  # Throttle rapid display updates
+            self._display_crash(crash)
+            self.last_stats_display = current_time
+        elif crash.severity >= 7:  # Always show high-severity crashes
+            self._display_crash(crash)
         
         # Save crash to file
         await self._save_crash(crash)
@@ -799,6 +859,44 @@ class AndroidCrashMonitor:
             logger.error(f"Failed to save crash to {filepath}: {type(e).__name__}: {e}")
             logger.error(f"Output directory exists: {self.output_dir.exists()}")
             logger.error(f"Output directory writable: {os.access(self.output_dir, os.W_OK)}")
+    
+    async def _show_periodic_reminders(self) -> None:
+        """Show periodic reminders to press Ctrl+C, especially when events are flowing rapidly."""
+        while self.is_running:
+            try:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                current_time = time.time()
+                
+                # Show reminder if we've detected crashes or it's been a while
+                time_since_last_reminder = current_time - self.last_reminder_time
+                
+                # Show reminder if:
+                # - Rapid crashes (5+ in last 30 seconds) OR
+                # - Been running for 2+ minutes without reminder OR 
+                # - High activity (10+ crashes since last reminder)
+                should_remind = (
+                    self.crash_count_since_last_reminder >= 5 or  # Rapid crashes
+                    time_since_last_reminder > 120 or              # 2 minutes since last
+                    (self.crash_count_since_last_reminder >= 10 and time_since_last_reminder > 60)  # High activity
+                )
+                
+                if should_remind:
+                    crash_rate = self.crash_count_since_last_reminder / max(time_since_last_reminder / 60, 1)
+                    if crash_rate > 2:  # More than 2 crashes per minute
+                        self.console.info(f"\n📊 {self.stats.total_crashes} crashes detected ({crash_rate:.1f}/min) - Press Ctrl+C to stop and analyze")
+                    elif self.stats.total_crashes > 0:
+                        self.console.info(f"\n📊 {self.stats.total_crashes} crashes detected - Press Ctrl+C to stop and analyze")
+                    else:
+                        self.console.info("\n⏱️  Monitoring active - Press Ctrl+C to stop")
+                    
+                    self.last_reminder_time = current_time
+                    self.crash_count_since_last_reminder = 0
+                    
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"Reminder task error: {e}")
+                await asyncio.sleep(30)
     
     async def _update_stats_periodically(self) -> None:
         """Update monitoring statistics periodically."""
