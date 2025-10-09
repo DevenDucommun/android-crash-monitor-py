@@ -78,6 +78,7 @@ That's it! One command handles everything: setup, device detection, and monitori
 | Command | Description | Example |
 |---------|-------------|---------|
 | `acm start` | 🚀 **One-command setup and monitoring** | `acm start` |
+| `acm analyze` | 🔍 **Comprehensive crash pattern analysis** | `acm analyze --summary` |
 | `acm setup` | Run interactive setup wizard | `acm setup --auto` |
 | `acm monitor` | Start monitoring Android device | `acm monitor --device pixel` |
 | `acm logs` | View and manage collected logs | `acm logs --filter crash --last 1h` |

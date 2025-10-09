@@ -18,6 +18,8 @@ from .setup.setup import run_setup
 from .core.adb import ADBManager
 from .ui.console import ConsoleUI
 from .utils.logger import get_logger, setup_logging
+from .analysis.crash_analyzer import CrashAnalyzer
+from .analysis.report_generator import ReportGenerator
 
 logger = get_logger(__name__)
 
@@ -52,10 +54,13 @@ def cli(ctx, config: Optional[Path], profile: str, verbose: int, quiet: bool):
     Quick Start (Recommended):
       acm start              # 🚀 One-command setup and monitoring
     
-    Other Commands:
-      acm setup              # Run interactive setup wizard
+    Analysis & Monitoring:
+      acm analyze            # 🔍 Analyze crash patterns and system health
       acm monitor            # Start monitoring (requires setup first)
       acm logs --last 1h     # Show logs from last hour
+    
+    Other Commands:
+      acm setup              # Run interactive setup wizard
       acm devices            # List connected Android devices
     """
     # Setup logging based on verbosity
@@ -481,6 +486,101 @@ def config(ctx, profile: Optional[str], list_profiles: bool, edit: bool):
             ui.info(f"Max log size: {size_mb}MB")
     else:
         ui.warning("No configuration found. Run 'acm setup' first.")
+
+
+@cli.command()
+@click.option('--output', '-o', 
+              type=click.Path(path_type=Path),
+              help='Output directory for analysis reports')
+@click.option('--format', '-f',
+              type=click.Choice(['console', 'json', 'markdown', 'all']),
+              default='console',
+              help='Report format')
+@click.option('--summary', is_flag=True,
+              help='Generate brief summary only')
+@click.pass_context
+def analyze(ctx, output: Optional[Path], format: str, summary: bool):
+    """🔍 Analyze crash logs for patterns and system health.
+    
+    Comprehensive crash analysis based on real-world diagnostic experience.
+    Identifies critical patterns like database corruption, cascade failures,
+    hardware issues, and system instability indicators.
+    
+    Examples:
+      acm analyze                    # Interactive console analysis
+      acm analyze --summary          # Brief summary only
+      acm analyze -f json -o report.json  # JSON report file
+      acm analyze -f all -o /path/   # All formats to directory
+    """
+    config = ctx.obj.get('config')
+    ui = ctx.obj['console']
+    
+    if not config:
+        ui.error("Setup not completed. Run 'acm setup' first.")
+        sys.exit(1)
+        
+    # Determine log directory
+    log_directory = Path(config.output_dir)
+    if not log_directory.exists():
+        ui.error(f"Log directory not found: {log_directory}")
+        ui.info("Run 'acm monitor' first to generate crash data")
+        sys.exit(1)
+        
+    try:
+        # Initialize analyzer
+        ui.info("🔍 Loading crash data for analysis...")
+        analyzer = CrashAnalyzer(log_directory)
+        crash_count = analyzer.load_crashes()
+        
+        if crash_count == 0:
+            ui.warning("No crash files found to analyze")
+            ui.info("Run 'acm monitor' first to generate crash data")
+            return
+            
+        # Generate analysis
+        ui.info(f"📊 Analyzing {crash_count:,} crashes...")
+        report = analyzer.generate_analysis_report()
+        
+        # Generate reports based on format
+        generator = ReportGenerator(console)
+        
+        if summary:
+            # Just show summary
+            summary_text = generator.generate_summary_report(report)
+            ui.success(summary_text)
+            return
+            
+        if format in ['console', 'all']:
+            generator.generate_console_report(report)
+            
+        if output and format in ['json', 'all']:
+            json_path = output / 'crash_analysis.json' if output.is_dir() else output.with_suffix('.json')
+            generator.generate_json_report(report, json_path)
+            ui.success(f"JSON report saved: {json_path}")
+            
+        if output and format in ['markdown', 'all']:
+            md_path = output / 'crash_analysis.md' if output.is_dir() else output.with_suffix('.md')
+            generator.generate_markdown_report(report, md_path)
+            ui.success(f"Markdown report saved: {md_path}")
+            
+        # Show quick summary
+        health = report.get('summary', {}).get('system_health', {})
+        status = health.get('status', 'UNKNOWN')
+        patterns = len(report.get('critical_patterns', {}))
+        
+        if status == 'CRITICAL':
+            ui.error(f"⚠️ CRITICAL system status with {patterns} critical patterns detected!")
+        elif status == 'UNSTABLE':
+            ui.warning(f"⚠️ UNSTABLE system with {patterns} patterns - monitor closely")
+        elif patterns > 0:
+            ui.warning(f"Found {patterns} patterns to investigate")
+        else:
+            ui.success("✅ System appears stable")
+            
+    except Exception as e:
+        ui.error(f"Analysis failed: {e}")
+        logger.exception("Analyze command failed")
+        sys.exit(1)
 
 
 def main():
