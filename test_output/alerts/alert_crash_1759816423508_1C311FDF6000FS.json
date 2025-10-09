@@ -1,0 +1,20 @@
+{
+  "alert_id": "crash_1759816423508_1C311FDF6000FS",
+  "alert_type": "hls_streaming_down",
+  "level": "error",
+  "title": "HLS Streaming Failure",
+  "message": "HLS streaming error detected. Pattern: Invalid HLS manifest: does not start with #EXTM3U... This typically indicates video playback issues in browsers or media apps. Protocol: HLS Confidence: 100.0%",
+  "timestamp": "2025-10-06T22:53:43.508801",
+  "device_serial": "1C311FDF6000FS",
+  "crash_type": "hls_streaming_error",
+  "app_package": "com.aloha.browser",
+  "severity": 7,
+  "crash_count": 1,
+  "time_window_minutes": 1,
+  "metadata": {
+    "crash_category": "system_err_enhanced",
+    "detection_tag": "System.err",
+    "error_category": "media_streaming",
+    "streaming_protocol": "HLS"
+  }
+}

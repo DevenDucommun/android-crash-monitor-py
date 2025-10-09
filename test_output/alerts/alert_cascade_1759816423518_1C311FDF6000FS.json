@@ -1,0 +1,42 @@
+{
+  "alert_id": "cascade_1759816423518_1C311FDF6000FS",
+  "alert_type": "cascade_failure",
+  "level": "critical",
+  "title": "CASCADE FAILURE: media_pipeline_error errors",
+  "message": "CASCADE FAILURE DETECTED: 3 crashes in 5 seconds. Dominant type: hls_streaming_error. This indicates a serious system instability issue requiring immediate attention.",
+  "timestamp": "2025-10-06T22:53:43.518603",
+  "device_serial": "1C311FDF6000FS",
+  "crash_type": "media_pipeline_error",
+  "app_package": null,
+  "severity": 10,
+  "crash_count": 3,
+  "time_window_minutes": 0.08333333333333333,
+  "metadata": {
+    "cascade_info": {
+      "total_crashes": 3,
+      "unique_types": 3,
+      "crash_types": [
+        "hls_streaming_error",
+        "media_pipeline_error",
+        "receiver_registration_error"
+      ],
+      "time_window": 5,
+      "dominant_type": "hls_streaming_error"
+    },
+    "original_context": {
+      "crash_category": "system_err_enhanced",
+      "detection_tag": "Codec2-GraphicBufferAllocator",
+      "cascade_detected": {
+        "total_crashes": 3,
+        "unique_types": 3,
+        "crash_types": [
+          "hls_streaming_error",
+          "media_pipeline_error",
+          "receiver_registration_error"
+        ],
+        "time_window": 5,
+        "dominant_type": "hls_streaming_error"
+      }
+    }
+  }
+}
