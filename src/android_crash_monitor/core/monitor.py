@@ -27,6 +27,21 @@ from .config import MonitoringConfig, ConfigManager
 from ..ui.console import ConsoleUI
 from ..utils.logger import get_logger
 
+# Enhanced detection components
+try:
+    from .enhanced_detector import EnhancedCrashDetector
+    ENHANCED_DETECTION_AVAILABLE = True
+except ImportError as e:
+    # Try alternative import paths
+    try:
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+        from enhanced_detector import EnhancedCrashDetector
+        ENHANCED_DETECTION_AVAILABLE = True
+    except ImportError:
+        ENHANCED_DETECTION_AVAILABLE = False
+
 logger = get_logger(__name__)
 
 
@@ -469,7 +484,14 @@ class AndroidCrashMonitor:
         self.console = console
         self.adb_manager = ADBManager()
         self.log_parser = LogParser()
-        self.crash_detector = CrashDetector()
+        
+        # Use enhanced crash detector if available
+        if ENHANCED_DETECTION_AVAILABLE:
+            self.crash_detector = EnhancedCrashDetector(console, Path(config.output_dir))
+            self.console.info("🚀 Enhanced System.err monitoring enabled")
+        else:
+            self.crash_detector = CrashDetector()
+            self.console.info("📋 Standard crash monitoring enabled")
         
         # Monitoring state
         self.is_running = False
@@ -590,6 +612,11 @@ class AndroidCrashMonitor:
             device_names = [d.display_name for d in self.monitored_devices]
             self.console.success(f"Monitoring: {', '.join(device_names)}")
             self.console.info("🔄 Waiting for live logs... (Press Ctrl+C to stop)")
+            
+            # Set device models for enhanced detector if available
+            if hasattr(self.crash_detector, 'set_device_model'):
+                for device in self.monitored_devices:
+                    self.crash_detector.set_device_model(device.serial, device.model or 'Unknown')
         else:
             available_devices = [d for d in all_devices if d.is_online]
             if available_devices:
@@ -874,6 +901,21 @@ class AndroidCrashMonitor:
                 )
                 for app, count in sorted_apps[:5]:  # Top 5
                     self.console.info(f"  {app}: {count}")
+            
+            # Show enhanced statistics if available
+            if hasattr(self.crash_detector, 'get_enhanced_statistics'):
+                enhanced_stats = self.crash_detector.get_enhanced_statistics()
+                
+                if enhanced_stats['enhanced_crashes_detected'] > 0:
+                    self.console.info("\n🚀 Enhanced System.err Detection Summary:")
+                    self.console.info(f"  Enhanced crashes: {enhanced_stats['enhanced_crashes_detected']}")
+                    self.console.info(f"  HLS streaming errors: {enhanced_stats['hls_streaming_errors']}")
+                    self.console.info(f"  Video codec errors: {enhanced_stats['video_codec_errors']}")
+                    self.console.info(f"  Cascade failures: {enhanced_stats['cascade_failures_detected']}")
+                    self.console.info(f"  Total alerts sent: {enhanced_stats['total_alerts_sent']}")
+                    
+                    if enhanced_stats['cascade_alerts_sent'] > 0:
+                        self.console.warning(f"  🚨 CASCADE ALERTS: {enhanced_stats['cascade_alerts_sent']}")
         else:
             self.console.success("No crashes detected during monitoring")
 
