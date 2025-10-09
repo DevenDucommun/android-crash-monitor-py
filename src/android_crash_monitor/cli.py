@@ -168,15 +168,12 @@ def start(ctx, setup: bool, duration: Optional[str]):
     ui = ctx.obj['console']
     config_manager = ctx.obj['config_manager']
     
-    # Welcome message
-    ui.success("🚀 Android Crash Monitor - Quick Start")
-    ui.info("One-command solution for Android crash monitoring\n")
-    
     # Check if setup is needed or forced
     needs_setup = setup or not config
     
     if needs_setup:
-        ui.info("⚙️  Running setup first...")
+        ui.info("🚀 Android Crash Monitor - First Time Setup")
+        ui.info("Setting up monitoring system...\n")
         try:
             import asyncio
             success = asyncio.run(run_setup())
@@ -187,7 +184,7 @@ def start(ctx, setup: bool, duration: Optional[str]):
             # Reload config after setup
             config = config_manager.get_active_config()
             ctx.obj['config'] = config
-            ui.success("✅ Setup completed!\n")
+            ui.success("✅ Setup complete!\n")
             
         except KeyboardInterrupt:
             ui.warning("Setup cancelled. Cannot start monitoring.")
@@ -195,16 +192,42 @@ def start(ctx, setup: bool, duration: Optional[str]):
         except Exception as e:
             ui.error(f"Setup failed: {e}")
             sys.exit(1)
+    else:
+        ui.success("🚀 Android Crash Monitor")
     
-    # Start monitoring immediately
-    ui.info("🎯 Starting enhanced crash monitoring...")
+    # Quick device check
+    from .core.adb import ADBManager
+    import asyncio
+    
+    try:
+        adb_manager = ADBManager()
+        device_list = asyncio.run(adb_manager.list_devices())
+        online_devices = [d for d in device_list if d.is_online]
+        
+        if not online_devices:
+            ui.warning("⚠️  No Android devices detected")
+            ui.info("Please ensure:")
+            ui.info("  • USB debugging is enabled")
+            ui.info("  • Device is connected via USB")
+            ui.info("  • Device is unlocked and authorized")
+            return
+            
+        if len(online_devices) == 1:
+            device = online_devices[0]
+            ui.info(f"📱 Connected: {device.display_name}")
+        else:
+            ui.info(f"📱 Found {len(online_devices)} devices")
+            
+    except Exception as e:
+        ui.warning(f"Device check failed: {e}")
+    
+    # Start monitoring with clean output
+    ui.info("🔍 Starting enhanced crash monitoring...")
     
     if duration:
         ui.info(f"⏱️  Duration: {duration}")
     
-    ui.info("📱 Monitoring all connected devices")
-    ui.info("🔍 Enhanced System.err detection enabled")
-    ui.info("⚠️  Press Ctrl+C to stop monitoring\n")
+    ui.info("⚠️  Press Ctrl+C to stop and analyze\n")
     
     # Invoke the monitor command with optimized settings
     try:
@@ -218,8 +241,32 @@ def start(ctx, setup: bool, duration: Optional[str]):
         asyncio.run(monitor.start_monitoring(None))  # None = monitor all devices
         
     except KeyboardInterrupt:
-        ui.info("\n✅ Monitoring stopped by user")
-        ui.info("📊 Check the output directory for crash reports")
+        ui.info("\n✅ Monitoring stopped")
+        
+        # Offer immediate analysis
+        ui.info("🔍 Quick analysis of captured crashes:")
+        try:
+            from .analysis.crash_analyzer import CrashAnalyzer
+            from .analysis.report_generator import ReportGenerator
+            
+            analyzer = CrashAnalyzer(Path(config.output_dir))
+            crash_count = analyzer.load_crashes()
+            
+            if crash_count > 0:
+                ui.info(f"Found {crash_count} crashes to analyze...")
+                report = analyzer.generate_analysis_report()
+                generator = ReportGenerator()
+                summary = generator.generate_summary_report(report)
+                ui.success(f"\n{summary}")
+                
+                ui.info("\nFor detailed analysis, run: python3 -m android_crash_monitor.cli analyze")
+            else:
+                ui.success("No crashes detected during monitoring session")
+                
+        except Exception as e:
+            ui.warning(f"Quick analysis failed: {e}")
+            ui.info("📊 Check the output directory for crash reports")
+            
     except Exception as e:
         ui.error(f"Monitoring failed: {e}")
         logger.exception("Start command failed")
