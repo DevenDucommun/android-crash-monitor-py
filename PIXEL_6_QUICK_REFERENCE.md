@@ -1,5 +1,5 @@
 # Pixel 6 Quick Reference Guide
-**Device:** Google Pixel 6 (1C311FDF6000FS) - WiFi Only  
+**Device:** Google Pixel 6 (SERIAL_REDACTED) - WiFi Only
 **Status:** Stable after 5G hardware failure resolution
 
 ## 🚨 If Reboots Return

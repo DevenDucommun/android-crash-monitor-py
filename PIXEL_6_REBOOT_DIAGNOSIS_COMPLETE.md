@@ -1,5 +1,5 @@
 # Pixel 6 Reboot Issue - Complete Diagnosis & Solution Report
-**Device:** Google Pixel 6 (1C311FDF6000FS)  
+**Device:** Google Pixel 6 (SERIAL_REDACTED)
 **Issue:** Random reboots during normal usage  
 **Investigation Date:** October 8-9, 2025  
 **Status:** ✅ **RESOLVED**
