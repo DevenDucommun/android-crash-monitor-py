@@ -242,30 +242,6 @@ def start(ctx, setup: bool, duration: Optional[str]):
         
     except KeyboardInterrupt:
         ui.info("\n✅ Monitoring stopped")
-        
-        # Offer immediate analysis
-        ui.info("🔍 Quick analysis of captured crashes:")
-        try:
-            from .analysis.crash_analyzer import CrashAnalyzer
-            from .analysis.report_generator import ReportGenerator
-            
-            analyzer = CrashAnalyzer(Path(config.output_dir))
-            crash_count = analyzer.load_crashes()
-            
-            if crash_count > 0:
-                ui.info(f"Found {crash_count} crashes to analyze...")
-                report = analyzer.generate_analysis_report()
-                generator = ReportGenerator()
-                summary = generator.generate_summary_report(report)
-                ui.success(f"\n{summary}")
-                
-                ui.info("\nFor detailed analysis, run: python3 -m android_crash_monitor.cli analyze")
-            else:
-                ui.success("No crashes detected during monitoring session")
-                
-        except Exception as e:
-            ui.warning(f"Quick analysis failed: {e}")
-            ui.info("📊 Check the output directory for crash reports")
             
     except Exception as e:
         ui.error(f"Monitoring failed: {e}")
