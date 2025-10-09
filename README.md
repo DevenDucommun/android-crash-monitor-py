@@ -62,9 +62,17 @@ Download the standalone executable from [Releases](../../releases) - no Python r
 ## 🎯 Quick Start
 
 ### Super Simple (Recommended) 🚀
+
+#### From Project Directory:
+```bash
+./start.sh
+```
+
+#### If Installed Globally:
 ```bash
 acm start
 ```
+
 That's it! One command handles everything: setup, device detection, and monitoring.
 
 ### Step by Step (Advanced Users)

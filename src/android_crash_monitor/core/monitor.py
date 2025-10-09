@@ -524,8 +524,8 @@ class AndroidCrashMonitor:
         # Event handlers
         self.crash_handlers: List[Callable[[CrashEvent], None]] = []
         
-        # Graceful shutdown
-        self.shutdown_event = asyncio.Event()
+        # Graceful shutdown (will be initialized when monitoring starts)
+        self.shutdown_event = None
         
     def add_crash_handler(self, handler: Callable[[CrashEvent], None]):
         """Add a crash event handler."""
@@ -538,6 +538,9 @@ class AndroidCrashMonitor:
         
         self.start_time = datetime.now()
         self.stats.start_time = self.start_time.isoformat()
+        
+        # Initialize async components now that we have an event loop
+        self.shutdown_event = asyncio.Event()
         
         try:
             # Discover devices to monitor
@@ -578,7 +581,8 @@ class AndroidCrashMonitor:
         
         self.console.info("Stopping monitoring...")
         self.is_running = False
-        self.shutdown_event.set()
+        if self.shutdown_event:
+            self.shutdown_event.set()
         
         # Stop all logcat processes
         for device_serial, process in self.active_processes.items():
