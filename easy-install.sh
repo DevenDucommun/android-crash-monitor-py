@@ -38,15 +38,18 @@ command_exists() {
 
 # Function to install Python
 install_python() {
-    echo "📦 Installing Python..."
+    echo "📦 Installing Python with modern Tcl/Tk..."
     
     if [[ "$OS" == "mac" ]]; then
         if command_exists brew; then
-            brew install python3
+            # Install Python with modern Tcl/Tk (fixes deprecation warning)
+            brew install python-tk
+            echo "✅ Installed modern Python with up-to-date Tcl/Tk (no deprecation warnings)"
         else
             echo "⚠️  Homebrew not found. Installing Homebrew first..."
             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            brew install python3
+            brew install python-tk
+            echo "✅ Installed modern Python with up-to-date Tcl/Tk"
         fi
     elif [[ "$OS" == "linux" ]]; then
         if command_exists apt; then

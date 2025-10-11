@@ -175,11 +175,19 @@ class AndroidCrashMonitorGUI:
                 self.log_message(f"{description} completed successfully", "success")
                 return result.stdout
             else:
-                self.log_message(f"{description} failed: {result.stderr}", "error")
+                # Don't log stderr for common failures (like missing commands)
+                if "not found" in result.stderr or "command not found" in result.stderr:
+                    self.log_message(f"{description}: Command not available", "warning")
+                else:
+                    self.log_message(f"{description} failed: {result.stderr}", "error")
                 return None
         except subprocess.TimeoutExpired:
             self.update_progress("Ready", False)
             self.log_message(f"{description} timed out", "error")
+            return None
+        except FileNotFoundError:
+            self.update_progress("Ready", False)
+            self.log_message(f"{description}: Command not found", "warning")
             return None
         except Exception as e:
             self.update_progress("Ready", False)
@@ -193,8 +201,14 @@ class AndroidCrashMonitorGUI:
         # Check if ADB is available
         adb_result = self.run_command("adb version", "Checking ADB installation")
         if not adb_result:
-            self.connection_status.config(text="ADB not installed", style='Error.TLabel')
-            self.log_message("ADB is not installed. Please run setup first.", "warning")
+            self.connection_status.config(text="Setup Required", style='Warning.TLabel')
+            self.health_status.config(text="Setup Required", style='Warning.TLabel')
+            self.log_message("ADB not found. Click 'Setup Device' to install required tools.", "warning")
+            
+            # Disable buttons that require ADB
+            self.monitor_button.config(state='disabled')
+            self.analyze_button.config(state='disabled')
+            self.autofix_button.config(state='disabled')
             return
         
         # Check for connected devices
