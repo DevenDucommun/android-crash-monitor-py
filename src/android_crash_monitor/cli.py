@@ -606,6 +606,49 @@ def analyze(ctx, output: Optional[Path], format: str, summary: bool):
         sys.exit(1)
 
 
+@cli.command()
+@click.pass_context
+def gui(ctx):
+    """🖥️ Launch graphical user interface.
+    
+    Opens a user-friendly graphical interface for Android Crash Monitor.
+    Perfect for non-technical users who prefer clicking buttons over
+    typing commands.
+    
+    Features:
+    • Simple device status display
+    • One-click monitoring start/stop
+    • Visual progress indicators
+    • Automatic analysis reports
+    • Easy report saving
+    
+    No command line knowledge required!
+    """
+    ui = ctx.obj['console']
+    
+    try:
+        # Import GUI module
+        from .gui import main as gui_main
+        
+        ui.info("🖥️ Starting graphical interface...")
+        ui.info("You can close this terminal window once the GUI opens.")
+        
+        # Launch GUI
+        gui_main()
+        
+    except ImportError:
+        ui.error("GUI module not available")
+        ui.info("This may be because tkinter is not installed on your system.")
+        ui.info("On macOS: GUI should work out of the box")
+        ui.info("On Linux: Install tkinter with 'apt install python3-tk' or similar")
+        ui.info("On Windows: GUI should work out of the box")
+        sys.exit(1)
+    except Exception as e:
+        ui.error(f"Failed to start GUI: {e}")
+        logger.exception("GUI command failed")
+        sys.exit(1)
+
+
 def main():
     """Main entry point for the CLI application."""
     try:
