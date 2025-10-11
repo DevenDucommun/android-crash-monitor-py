@@ -8,6 +8,9 @@ import sys
 import os
 from pathlib import Path
 
+# Suppress macOS tkinter deprecation warning
+os.environ['TK_SILENCE_DEPRECATION'] = '1'
+
 # Add the src directory to the Python path
 current_dir = Path(__file__).parent
 src_dir = current_dir / "src"
