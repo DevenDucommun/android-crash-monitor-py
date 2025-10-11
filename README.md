@@ -50,6 +50,8 @@ cd android-crash-monitor-py
 ```
 Then double-click `launch-gui.py` to start the graphical interface!
 
+**Note for macOS users:** The installer automatically installs modern Python to avoid tkinter deprecation warnings.
+
 ### Option 1: Install from PyPI (Recommended)
 ```bash
 pip install android-crash-monitor
