@@ -45,14 +45,37 @@ acm setup
 git clone https://github.com/DevenDucommun/android-crash-monitor-py.git
 cd android-crash-monitor-py
 pip install -e .
-acm setup
+acm start
 ```
+
+### Option 2b: Super Simple Script (No Installation)
+```bash
+git clone https://github.com/DevenDucommun/android-crash-monitor-py.git
+cd android-crash-monitor-py
+./run.sh
+```
+The `run.sh` script handles everything automatically!
 
 ### Option 3: Portable Executable
 Download the standalone executable from [Releases](../../releases) - no Python required!
 
 ## 🎯 Quick Start
 
+### Super Simple (Recommended) 🚀
+
+#### From Project Directory:
+```bash
+./start.sh
+```
+
+#### If Installed Globally:
+```bash
+acm start
+```
+
+That's it! One command handles everything: setup, device detection, and monitoring.
+
+### Step by Step (Advanced Users)
 1. **Run Setup**: `acm setup` - Interactive setup wizard
 2. **Connect Device**: Enable USB debugging on your Android device
 3. **Start Monitoring**: `acm monitor` - Begin crash monitoring
@@ -62,6 +85,8 @@ Download the standalone executable from [Releases](../../releases) - no Python r
 
 | Command | Description | Example |
 |---------|-------------|---------|
+| `acm start` | 🚀 **One-command setup and monitoring** | `acm start` |
+| `acm analyze` | 🔍 **Comprehensive crash pattern analysis** | `acm analyze --summary` |
 | `acm setup` | Run interactive setup wizard | `acm setup --auto` |
 | `acm monitor` | Start monitoring Android device | `acm monitor --device pixel` |
 | `acm logs` | View and manage collected logs | `acm logs --filter crash --last 1h` |
