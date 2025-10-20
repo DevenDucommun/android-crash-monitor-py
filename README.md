@@ -4,6 +4,13 @@ A modern, user-friendly Android crash monitoring tool built with Python for enha
 
 ## 🚀 Features
 
+### 🖥️ Simple Graphical Interface (NEW!)
+- **No command line needed** - Point and click interface
+- **Real-time device status** with green/yellow/red indicators
+- **One-click automatic fixes** for common problems
+- **Plain-English problem explanations** (no technical jargon)
+- **Built-in help and troubleshooting guides**
+
 ### Enhanced User Experience
 - **Rich terminal interface** with progress bars and colored output
 - **Interactive setup wizard** with intelligent detection
@@ -33,6 +40,17 @@ A modern, user-friendly Android crash monitoring tool built with Python for enha
 - **Plugin system** for custom log processors
 
 ## 🛠 Installation
+
+### 🎆 Super Easy (For Everyone!)
+**No technical knowledge required:**
+```bash
+git clone https://github.com/DevenDucommun/android-crash-monitor-py.git
+cd android-crash-monitor-py
+./easy-install.sh
+```
+Then double-click `launch-gui.py` to start the graphical interface!
+
+**Note for macOS users:** The installer automatically installs modern Python to avoid tkinter deprecation warnings.
 
 ### Option 1: Install from PyPI (Recommended)
 ```bash
@@ -82,9 +100,9 @@ That's it! One command handles everything: setup, device detection, and monitori
 4. **View Logs**: `acm logs` - Browse collected logs with filtering
 
 ## 📋 Commands
-
-| Command | Description | Example |
+|| Command | Description | Example |
 |---------|-------------|---------|
+| `acm gui` | 🖥️ **Launch graphical interface (no command line needed!)** | `acm gui` |
 | `acm start` | 🚀 **One-command setup and monitoring** | `acm start` |
 | `acm analyze` | 🔍 **Comprehensive crash pattern analysis** | `acm analyze --summary` |
 | `acm setup` | Run interactive setup wizard | `acm setup --auto` |
