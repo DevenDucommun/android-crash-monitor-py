@@ -326,26 +326,54 @@ class AndroidCrashMonitorGUI:
             self.analyze_issues()
     
     def analyze_issues(self):
-        """Run crash analysis"""
+        """Run enhanced crash analysis"""
         if not self.device_connected:
             messagebox.showerror("Error", "No device connected. Please setup your device first.")
             return
         
-        self.log_message("Starting crash analysis...")
+        self.log_message("Starting enhanced crash analysis...")
         
         def analyze_thread():
-            # Run analysis command
-            if os.path.exists("src/android_crash_monitor"):
-                result = self.run_command("python -m android_crash_monitor.cli analyze --summary", 
-                                        "Analyzing crash patterns")
-            else:
-                result = self.run_command("python analyze_recent_crash.py", 
-                                        "Running crash analysis")
-            
-            if result:
-                self.log_message("Analysis completed! Check results above.", "success")
-            else:
-                self.log_message("Analysis completed with some warnings.", "warning")
+            try:
+                # Try to use enhanced analysis if available
+                from .analysis.enhanced_analyzer import EnhancedCrashAnalyzer
+                from pathlib import Path
+                
+                # Create analyzer with logs directory
+                logs_dir = Path.cwd() / "logs"
+                if not logs_dir.exists():
+                    logs_dir.mkdir(exist_ok=True)
+                
+                analyzer = EnhancedCrashAnalyzer(logs_dir)
+                result = analyzer.analyze_comprehensive()
+                
+                # Display enhanced results in GUI
+                self.root.after(0, lambda: self._display_enhanced_analysis(result))
+                
+            except ImportError as e:
+                # Fallback to traditional analysis
+                self.root.after(0, lambda: self.log_message("Using traditional analysis (enhanced features not available)", "warning"))
+                if os.path.exists("src/android_crash_monitor"):
+                    result = self.run_command("python -m android_crash_monitor.cli analyze --summary", 
+                                            "Analyzing crash patterns")
+                else:
+                    result = self.run_command("python analyze_recent_crash.py", 
+                                            "Running crash analysis")
+                
+                if result:
+                    self.root.after(0, lambda: self.log_message("Analysis completed! Check results above.", "success"))
+                else:
+                    self.root.after(0, lambda: self.log_message("Analysis completed with some warnings.", "warning"))
+                    
+            except Exception as e:
+                self.root.after(0, lambda: self.log_message(f"Enhanced analysis error: {str(e)}", "error"))
+                # Fallback to traditional analysis
+                if os.path.exists("src/android_crash_monitor"):
+                    result = self.run_command("python -m android_crash_monitor.cli analyze --summary", 
+                                            "Analyzing crash patterns (fallback)")
+                else:
+                    result = self.run_command("python analyze_recent_crash.py", 
+                                            "Running crash analysis (fallback)")
         
         threading.Thread(target=analyze_thread, daemon=True).start()
     
@@ -449,18 +477,220 @@ class AndroidCrashMonitorGUI:
                                "Your device may not have common issues, or "
                                "manual troubleshooting may be needed.")
     
+    def _display_enhanced_analysis(self, result):
+        """Display enhanced analysis results in a popup window"""
+        try:
+            # Create analysis results window
+            analysis_window = tk.Toplevel(self.root)
+            analysis_window.title("Enhanced Analysis Results")
+            analysis_window.geometry("900x700")
+            
+            # Create notebook for tabbed interface
+            notebook = ttk.Notebook(analysis_window)
+            notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+            
+            # Summary tab
+            summary_frame = ttk.Frame(notebook)
+            notebook.add(summary_frame, text="📊 Summary")
+            
+            summary_text = scrolledtext.ScrolledText(summary_frame, wrap=tk.WORD)
+            summary_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Insert summary content
+            summary_content = f"""
+🎯 ENHANCED ANALYSIS RESULTS
+{"="*50}
+
+Analysis Confidence: {result.overall_confidence:.1%}
+Quality Score: {result.analysis_quality_score:.1%}
+Crashes Analyzed: {result.total_crashes_analyzed}
+Analysis Time: {result.analysis_duration_seconds:.2f} seconds
+
+{result.user_friendly_summary}
+
+📋 PRIORITY RECOMMENDATIONS:
+{"="*30}
+
+"""
+            
+            for i, rec in enumerate(result.detailed_recommendations, 1):
+                summary_content += f"{i}. {rec}\n"
+            
+            summary_text.insert(tk.END, summary_content)
+            summary_text.config(state=tk.DISABLED)
+            
+            # Enhanced Patterns tab
+            if result.enhanced_patterns:
+                patterns_frame = ttk.Frame(notebook)
+                notebook.add(patterns_frame, text="🔍 Enhanced Patterns")
+                
+                patterns_text = scrolledtext.ScrolledText(patterns_frame, wrap=tk.WORD)
+                patterns_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+                
+                patterns_content = "ENHANCED STATISTICAL PATTERNS\n" + "="*40 + "\n\n"
+                
+                for i, pattern in enumerate(result.enhanced_patterns, 1):
+                    severity_icon = {
+                        "LOW": "🟢",
+                        "MEDIUM": "🟡", 
+                        "HIGH": "🟠",
+                        "CRITICAL": "🔴"
+                    }.get(pattern.severity.name, "⚪")
+                    
+                    patterns_content += f"""{i}. {severity_icon} {pattern.name.upper()}
+   Confidence: {pattern.confidence_score:.1%} | Urgency: {pattern.urgency_level}/10
+   Frequency: {pattern.frequency} occurrences
+   
+   📝 Description: {pattern.description}
+   
+   🔍 Evidence:
+"""
+                    for evidence in pattern.evidence:
+                        patterns_content += f"   • {evidence}\n"
+                    
+                    patterns_content += "\n   💡 Recommended Actions:\n"
+                    for action in pattern.recommended_actions:
+                        patterns_content += f"   • {action}\n"
+                    
+                    patterns_content += "\n" + "-"*60 + "\n\n"
+                
+                patterns_text.insert(tk.END, patterns_content)
+                patterns_text.config(state=tk.DISABLED)
+            
+            # System Health tab
+            health_frame = ttk.Frame(notebook)
+            notebook.add(health_frame, text="💻 System Health")
+            
+            health_text = scrolledtext.ScrolledText(health_frame, wrap=tk.WORD)
+            health_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            health_icon = {
+                "STABLE": "🟢",
+                "DEGRADED": "🟡",
+                "UNSTABLE": "🟠", 
+                "CRITICAL": "🔴"
+            }.get(result.system_health.status, "⚪")
+            
+            health_content = f"""
+SYSTEM HEALTH ASSESSMENT
+{"="*30}
+
+{health_icon} Status: {result.system_health.status}
+📊 Confidence: {result.system_health.confidence:.1%}
+
+📝 Summary:
+{result.system_health.summary}
+
+⚠️  Risk Assessment:
+• Cascade Risk: {'YES' if result.system_health.cascade_risk else 'NO'}
+• Reboot Risk: {'YES' if result.system_health.reboot_risk else 'NO'}
+
+Primary Issues Detected: {len(result.system_health.primary_issues)}
+"""
+            
+            if result.system_health.primary_issues:
+                health_content += "\n🔍 Top Issues:\n"
+                for issue in result.system_health.primary_issues:
+                    health_content += f"• {issue.description}\n"
+            
+            health_text.insert(tk.END, health_content)
+            health_text.config(state=tk.DISABLED)
+            
+            # Full Report tab
+            report_frame = ttk.Frame(notebook)
+            notebook.add(report_frame, text="📄 Full Report")
+            
+            report_text = scrolledtext.ScrolledText(report_frame, wrap=tk.WORD)
+            report_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+            
+            # Generate full plain language report
+            try:
+                from .analysis.enhanced_analyzer import EnhancedCrashAnalyzer
+                logs_dir = Path.cwd() / "logs"
+                analyzer = EnhancedCrashAnalyzer(logs_dir)
+                full_report = analyzer.get_plain_language_report()
+                report_text.insert(tk.END, full_report)
+            except Exception as e:
+                report_text.insert(tk.END, f"Error generating full report: {e}")
+            
+            report_text.config(state=tk.DISABLED)
+            
+            # Add buttons at bottom
+            button_frame = ttk.Frame(analysis_window)
+            button_frame.pack(pady=10)
+            
+            ttk.Button(button_frame, text="Save Analysis Report", 
+                      command=lambda: self._save_enhanced_analysis(result)).pack(side=tk.LEFT, padx=5)
+            ttk.Button(button_frame, text="Close", 
+                      command=analysis_window.destroy).pack(side=tk.LEFT, padx=5)
+            
+            # Log success
+            self.log_message(f"Enhanced analysis completed! Found {len(result.enhanced_patterns)} patterns with {result.overall_confidence:.1%} confidence.", "success")
+            
+        except Exception as e:
+            self.log_message(f"Error displaying enhanced analysis: {str(e)}", "error")
+    
+    def _save_enhanced_analysis(self, result):
+        """Save enhanced analysis results to file"""
+        try:
+            from tkinter import filedialog
+            from pathlib import Path
+            
+            # Ask user for save location
+            filename = filedialog.asksaveasfilename(
+                defaultextension=".json",
+                filetypes=[("JSON files", "*.json"), ("Text files", "*.txt"), ("All files", "*.*")],
+                title="Save Enhanced Analysis Report"
+            )
+            
+            if filename:
+                filepath = Path(filename)
+                
+                if filepath.suffix.lower() == '.json':
+                    # Save as JSON
+                    from .analysis.enhanced_analyzer import EnhancedCrashAnalyzer
+                    logs_dir = Path.cwd() / "logs"
+                    analyzer = EnhancedCrashAnalyzer(logs_dir)
+                    success = analyzer.export_analysis_json(filepath)
+                    
+                    if success:
+                        self.log_message(f"Enhanced analysis saved to {filename}", "success")
+                    else:
+                        self.log_message(f"Error saving analysis to {filename}", "error")
+                else:
+                    # Save as plain text report
+                    from .analysis.enhanced_analyzer import EnhancedCrashAnalyzer
+                    logs_dir = Path.cwd() / "logs"
+                    analyzer = EnhancedCrashAnalyzer(logs_dir)
+                    report = analyzer.get_plain_language_report()
+                    
+                    with open(filepath, 'w', encoding='utf-8') as f:
+                        f.write(report)
+                    
+                    self.log_message(f"Analysis report saved to {filename}", "success")
+        
+        except Exception as e:
+            self.log_message(f"Error saving analysis: {str(e)}", "error")
+    
     def show_help(self):
         """Show help dialog"""
         help_text = """
-Android Crash Monitor - Simple Mode
+Android Crash Monitor - Enhanced Mode
 
 How to use:
 1. Connect your Android device via USB
 2. Click "Setup Device" to install required tools
 3. Click "Start Monitoring" to watch for crashes
-4. Click "Analyze Issues" to see what's wrong
+4. Click "Analyze Issues" to run enhanced statistical analysis
 5. Click "Quick Fix" to automatically resolve common problems
 6. Use "Save Report" to keep results
+
+Enhanced Features:
+- Statistical pattern detection with confidence scoring
+- Temporal clustering analysis for burst detection
+- Correlation analysis between different crash types
+- Cascade failure detection for complex issues
+- Plain language explanations with urgency levels
 
 Troubleshooting:
 - Make sure USB Debugging is enabled on your device
@@ -472,7 +702,7 @@ Troubleshooting:
 For more help, visit: https://github.com/DevenDucommun/android-crash-monitor-py
         """
         
-        messagebox.showinfo("Help - Android Crash Monitor", help_text)
+        messagebox.showinfo("Help - Android Crash Monitor Enhanced", help_text)
 
 def main():
     """Main entry point for GUI mode"""
