@@ -31,6 +31,10 @@ class AndroidCrashMonitorGUI:
         self.monitoring_thread = None
         self.device_connected = False
         
+        # Real-time analysis
+        self.realtime_analyzer = None
+        self.realtime_update_timer = None
+        
         # Style configuration
         style = ttk.Style()
         style.configure('Success.TLabel', foreground='green')
@@ -129,6 +133,8 @@ class AndroidCrashMonitorGUI:
                   command=self.check_initial_status).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="❌ Clear Log", 
                   command=self.clear_log).pack(side=tk.LEFT, padx=5)
+        ttk.Button(bottom_frame, text="🧪 Test Alert", 
+                  command=self._simulate_crash_for_testing).pack(side=tk.LEFT, padx=5)
         ttk.Button(bottom_frame, text="❓ Help", 
                   command=self.show_help).pack(side=tk.RIGHT, padx=5)
     
@@ -284,7 +290,10 @@ class AndroidCrashMonitorGUI:
         self.monitoring = True
         self.monitor_button.config(text="⏹️ Stop Monitoring")
         self.monitoring_status.config(text="Active 🔴", style='Success.TLabel')
-        self.log_message("Starting crash monitoring...", "success")
+        self.log_message("Starting crash monitoring with real-time analysis...", "success")
+        
+        # Start real-time analyzer
+        self._start_realtime_analysis()
         
         def monitor_thread():
             try:
@@ -320,6 +329,9 @@ class AndroidCrashMonitorGUI:
         self.monitor_button.config(text="▶️ Start Monitoring")
         self.monitoring_status.config(text="Stopped", style='Warning.TLabel')
         self.log_message("Monitoring stopped", "info")
+        
+        # Stop real-time analyzer
+        self._stop_realtime_analysis()
         
         # Automatically offer analysis
         if messagebox.askyesno("Analysis", "Monitoring stopped. Would you like to analyze the collected data?"):
@@ -671,6 +683,194 @@ Primary Issues Detected: {len(result.system_health.primary_issues)}
         
         except Exception as e:
             self.log_message(f"Error saving analysis: {str(e)}", "error")
+    
+    def _start_realtime_analysis(self):
+        """Start real-time pattern analysis during monitoring"""
+        try:
+            from .analysis.realtime_analyzer import RealtimePatternAnalyzer, RealTimeAlert
+            
+            # Create real-time analyzer with alert callback
+            self.realtime_analyzer = RealtimePatternAnalyzer(
+                buffer_size=200,
+                analysis_window_minutes=15,
+                alert_callback=self._handle_realtime_alert
+            )
+            
+            # Start real-time analysis
+            if self.realtime_analyzer.start_realtime_analysis():
+                self.log_message("Real-time pattern analysis started", "success")
+                
+                # Start GUI update timer
+                self._start_realtime_gui_updates()
+            else:
+                self.log_message("Failed to start real-time analysis", "warning")
+                
+        except ImportError:
+            self.log_message("Real-time analysis not available - using basic monitoring", "warning")
+        except Exception as e:
+            self.log_message(f"Error starting real-time analysis: {e}", "error")
+    
+    def _stop_realtime_analysis(self):
+        """Stop real-time pattern analysis"""
+        if self.realtime_analyzer:
+            try:
+                self.realtime_analyzer.stop_realtime_analysis()
+                self.log_message("Real-time analysis stopped", "info")
+            except Exception as e:
+                self.log_message(f"Error stopping real-time analysis: {e}", "error")
+            
+            self.realtime_analyzer = None
+        
+        # Stop GUI updates
+        if self.realtime_update_timer:
+            self.root.after_cancel(self.realtime_update_timer)
+            self.realtime_update_timer = None
+    
+    def _start_realtime_gui_updates(self):
+        """Start periodic GUI updates for real-time data"""
+        self._update_realtime_display()
+        # Schedule next update in 2 seconds
+        self.realtime_update_timer = self.root.after(2000, self._start_realtime_gui_updates)
+    
+    def _update_realtime_display(self):
+        """Update GUI with real-time statistics"""
+        if not self.realtime_analyzer or not self.monitoring:
+            return
+        
+        try:
+            stats = self.realtime_analyzer.get_realtime_stats()
+            active_patterns = self.realtime_analyzer.get_active_patterns()
+            
+            # Update status with real-time stats
+            status_text = f"Active \ud83d\udd34 | {stats.total_crashes} crashes | {len(active_patterns)} patterns"
+            if stats.crashes_last_minute > 0:
+                status_text += f" | {stats.crashes_last_minute}/min"
+            
+            self.monitoring_status.config(text=status_text)
+            
+            # Log significant events
+            if stats.crashes_last_minute >= 3:
+                self.log_message(f"\u26a0\ufe0f High activity: {stats.crashes_last_minute} crashes in last minute", "warning")
+            
+            if len(active_patterns) > 0:
+                highest_confidence = max(p.confidence_score for p in active_patterns)
+                if highest_confidence >= 0.8:
+                    pattern_name = next(p.name for p in active_patterns if p.confidence_score == highest_confidence)
+                    self.log_message(f"\ud83c\udfa2 High confidence pattern: {pattern_name} ({highest_confidence:.1%})", "info")
+            
+        except Exception as e:
+            self.log_message(f"Error updating real-time display: {e}", "error")
+    
+    def _handle_realtime_alert(self, alert):
+        """Handle real-time alerts"""
+        try:
+            # Log alert to GUI
+            if alert.level.value >= 4:  # Critical or Emergency
+                level_text = "error"
+                alert_icon = "\ud83d\udea8"
+            elif alert.level.value >= 3:  # High
+                level_text = "warning"
+                alert_icon = "\u26a0\ufe0f"
+            else:
+                level_text = "info"
+                alert_icon = "\ud83d\udd14"
+            
+            message = f"{alert_icon} ALERT: {alert.message}"
+            self.log_message(message, level_text)
+            
+            # Show recommended action
+            if alert.recommended_action and alert.level.value >= 3:
+                self.log_message(f"\u27a1\ufe0f Recommended: {alert.recommended_action}", "info")
+            
+            # For critical alerts, show popup
+            if alert.level.value >= 4 and not alert.auto_dismissible:
+                self.root.after(0, lambda: self._show_critical_alert_popup(alert))
+                
+        except Exception as e:
+            print(f"Error handling real-time alert: {e}")
+    
+    def _show_critical_alert_popup(self, alert):
+        """Show popup for critical alerts"""
+        try:
+            # Create alert popup
+            alert_window = tk.Toplevel(self.root)
+            alert_window.title("Critical Alert")
+            alert_window.geometry("500x300")
+            alert_window.configure(bg="#ffebee")  # Light red background
+            
+            # Make it always on top
+            alert_window.attributes('-topmost', True)
+            
+            # Alert content frame
+            content_frame = ttk.Frame(alert_window, padding="20")
+            content_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Alert title
+            title_label = ttk.Label(content_frame, 
+                                   text=f"\ud83d\udea8 {alert.level.name} ALERT",
+                                   font=('Arial', 16, 'bold'))
+            title_label.pack(pady=(0, 10))
+            
+            # Alert message
+            message_label = ttk.Label(content_frame, 
+                                     text=alert.message,
+                                     font=('Arial', 12),
+                                     wraplength=450)
+            message_label.pack(pady=(0, 15))
+            
+            # Confidence and urgency
+            details_label = ttk.Label(content_frame,
+                                     text=f"Confidence: {alert.confidence:.1%} | Urgency: {alert.urgency}/10",
+                                     font=('Arial', 10))
+            details_label.pack(pady=(0, 15))
+            
+            # Recommended action
+            if alert.recommended_action:
+                action_label = ttk.Label(content_frame,
+                                        text=f"Recommended Action:\n{alert.recommended_action}",
+                                        font=('Arial', 11, 'bold'),
+                                        wraplength=450)
+                action_label.pack(pady=(0, 20))
+            
+            # Buttons
+            button_frame = ttk.Frame(content_frame)
+            button_frame.pack(pady=10)
+            
+            ttk.Button(button_frame, text="Acknowledge", 
+                      command=alert_window.destroy).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(button_frame, text="Stop Monitoring", 
+                      command=lambda: (alert_window.destroy(), self.stop_monitoring())).pack(side=tk.LEFT, padx=5)
+            
+            # Flash the window to get attention
+            def flash_window(count=6):
+                if count > 0:
+                    try:
+                        current_color = alert_window.cget('bg')
+                        new_color = '#ffcdd2' if current_color == '#ffebee' else '#ffebee'
+                        alert_window.configure(bg=new_color)
+                        alert_window.after(200, lambda: flash_window(count-1))
+                    except tk.TclError:
+                        pass  # Window might be closed
+            
+            flash_window()
+            
+        except Exception as e:
+            print(f"Error showing critical alert popup: {e}")
+    
+    def _simulate_crash_for_testing(self):
+        """Simulate a crash for testing real-time analysis"""
+        if self.realtime_analyzer:
+            import time
+            test_crash = {
+                'timestamp': time.strftime('%m-%d %H:%M:%S.%f'),
+                'app_name': 'TestApp',
+                'description': 'OutOfMemoryError: Java heap space exceeded',
+                'title': 'Test Memory Crash',
+                'related_logs': [{'message': 'Process killed low memory', 'level': 'ERROR'}]
+            }
+            self.realtime_analyzer.add_crash(test_crash)
+            self.log_message("\ud83e\uddea Test crash injected for real-time analysis", "info")
     
     def show_help(self):
         """Show help dialog"""
