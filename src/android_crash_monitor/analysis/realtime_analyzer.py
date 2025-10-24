@@ -283,9 +283,12 @@ class RealtimePatternAnalyzer:
         recent = []
         for crash in reversed(self.crash_buffer):  # Most recent first
             crash_time = self._get_crash_timestamp(crash)
-            if crash_time and crash_time >= cutoff:
+            # If timestamp parsing fails, include the crash anyway (assume it's recent)
+            if crash_time is None:
                 recent.append(crash)
-            elif crash_time and crash_time < cutoff:
+            elif crash_time >= cutoff:
+                recent.append(crash)
+            elif crash_time < cutoff:
                 break  # Buffer is ordered, so we can stop here
         
         return list(reversed(recent))  # Return in chronological order
@@ -297,15 +300,19 @@ class RealtimePatternAnalyzer:
             return None
         
         formats = [
+            '%Y-%m-%d %H:%M:%S.%f',  # Try with year first
+            '%Y-%m-%d %H:%M:%S',
             '%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S',
-            '%Y-%m-%d %H:%M:%S'
+            '%m-%d %H:%M:%S'
         ]
         
         for fmt in formats:
             try:
-                return datetime.strptime(timestamp_str.strip(), fmt)
+                parsed = datetime.strptime(timestamp_str.strip(), fmt)
+                # For formats without year, assume current year
+                if '%Y' not in fmt:
+                    parsed = parsed.replace(year=datetime.now().year)
+                return parsed
             except ValueError:
                 continue
         

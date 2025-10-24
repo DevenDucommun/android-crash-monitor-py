@@ -434,17 +434,21 @@ class StatisticalPatternDetector:
         if not timestamp_str:
             return None
         
-        # Try different timestamp formats
+        # Try different timestamp formats (prefer formats with year)
         formats = [
-            '%m-%d %H:%M:%S.%f',
             '%Y-%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S',
-            '%Y-%m-%d %H:%M:%S'
+            '%Y-%m-%d %H:%M:%S',
+            '%m-%d %H:%M:%S.%f',
+            '%m-%d %H:%M:%S'
         ]
         
         for fmt in formats:
             try:
-                return datetime.strptime(timestamp_str.strip(), fmt)
+                parsed = datetime.strptime(timestamp_str.strip(), fmt)
+                # For formats without year, assume current year
+                if '%Y' not in fmt:
+                    parsed = parsed.replace(year=datetime.now().year)
+                return parsed
             except ValueError:
                 continue
         
