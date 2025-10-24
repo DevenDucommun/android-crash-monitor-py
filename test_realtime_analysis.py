@@ -56,21 +56,21 @@ def test_realtime_analysis():
         
         memory_crashes = [
             {
-                'timestamp': time_mod.strftime('%m-%d %H:%M:%S.%f', time_mod.localtime(current_time)),
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(current_time)) + f".{int((current_time % 1) * 1000):03d}",
                 'app_name': 'HeavyApp',
                 'description': 'OutOfMemoryError: Java heap space exceeded',
                 'title': 'Memory Crash 1',
                 'related_logs': [{'message': 'Process killed low memory', 'level': 'ERROR'}]
             },
             {
-                'timestamp': time_mod.strftime('%m-%d %H:%M:%S.%f', time_mod.localtime(current_time + 30)),
-                'app_name': 'GameApp', 
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(current_time + 30)) + f".{int(((current_time + 30) % 1) * 1000):03d}",
+                'app_name': 'GameApp',
                 'description': 'GC overhead limit exceeded - heap full',
                 'title': 'Memory Crash 2',
                 'related_logs': [{'message': 'Activity not responding', 'level': 'WARN'}]
             },
             {
-                'timestamp': time_mod.strftime('%m-%d %H:%M:%S.%f', time_mod.localtime(current_time + 60)),
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(current_time + 60)) + f".{int(((current_time + 60) % 1) * 1000):03d}",
                 'app_name': 'HeavyApp',
                 'description': 'Unable to create new native thread',
                 'title': 'Memory Crash 3', 
@@ -90,12 +90,18 @@ def test_realtime_analysis():
         
         # Check stats
         stats = analyzer.get_realtime_stats()
-        print(f"   Stats after memory crashes: {stats.total_crashes} total, {len(analyzer.get_active_patterns())} patterns")
+        patterns = analyzer.get_active_patterns()
+        print(f"   Stats after memory crashes: {stats.total_crashes} total, {len(patterns)} patterns")
+        if patterns:
+            for p in patterns:
+                print(f"     Pattern: {p.name} ({p.confidence_score:.1%})")
         
         # Simulate burst pattern
         print("\n   Simulating crash burst...")
         for i in range(4):  # Trigger burst threshold
+            burst_time = current_time + 90 + (i * 15)  # Stagger slightly
             burst_crash = {
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(burst_time)) + f".{int((burst_time % 1) * 1000):03d}",
                 'app_name': f'BurstApp{i}',
                 'description': f'Crash {i} in burst sequence',
                 'title': f'Burst Crash {i}',
@@ -109,14 +115,17 @@ def test_realtime_analysis():
         
         # Simulate database pattern
         print("\n   Injecting database crashes...")
+        db_time_base = current_time + 150
         db_crashes = [
             {
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(db_time_base)) + f".{int((db_time_base % 1) * 1000):03d}",
                 'app_name': 'DatabaseApp',
                 'description': 'SQLiteException: database disk image is malformed', 
                 'title': 'DB Crash 1',
                 'related_logs': [{'message': 'disk full error', 'level': 'ERROR'}]
             },
             {
+                'timestamp': time_mod.strftime('%Y-%m-%d %H:%M:%S', time_mod.localtime(db_time_base + 30)) + f".{int(((db_time_base + 30) % 1) * 1000):03d}",
                 'app_name': 'ContactsApp',
                 'description': 'Database connection pool has been closed',
                 'title': 'DB Crash 2', 

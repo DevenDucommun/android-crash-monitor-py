@@ -35,6 +35,14 @@ class AndroidCrashMonitorGUI:
         self.realtime_analyzer = None
         self.realtime_update_timer = None
         
+        # Predictive analytics
+        self.predictive_analyzer = None
+        self.prediction_window = None
+        
+        # Root cause analysis
+        self.rca_analyzer = None
+        self.rca_window = None
+        
         # Style configuration
         style = ttk.Style()
         style.configure('Success.TLabel', foreground='green')
@@ -102,6 +110,14 @@ class AndroidCrashMonitorGUI:
         self.autofix_button = ttk.Button(button_frame, text="🔧 Quick Fix", 
                                         command=self.quick_fix, style='Large.TButton')
         self.autofix_button.pack(side=tk.LEFT, padx=5)
+        
+        self.predict_button = ttk.Button(button_frame, text="🔮 Predictions", 
+                                        command=self.show_predictions, style='Large.TButton')
+        self.predict_button.pack(side=tk.LEFT, padx=5)
+        
+        self.rca_button = ttk.Button(button_frame, text="🔬 Root Cause", 
+                                     command=self.show_root_cause_analysis, style='Large.TButton')
+        self.rca_button.pack(side=tk.LEFT, padx=5)
         
         # Progress bar
         progress_frame = ttk.Frame(main_frame)
@@ -215,6 +231,8 @@ class AndroidCrashMonitorGUI:
             self.monitor_button.config(state='disabled')
             self.analyze_button.config(state='disabled')
             self.autofix_button.config(state='disabled')
+            self.predict_button.config(state='disabled')
+            self.rca_button.config(state='disabled')
             return
         
         # Check for connected devices
@@ -227,6 +245,8 @@ class AndroidCrashMonitorGUI:
             # Enable monitoring button
             self.monitor_button.config(state='normal')
             self.analyze_button.config(state='normal')
+            self.predict_button.config(state='normal')
+            self.rca_button.config(state='normal')
             
             # Quick health check
             self.quick_health_check()
@@ -238,6 +258,8 @@ class AndroidCrashMonitorGUI:
             # Disable monitoring button
             self.monitor_button.config(state='disabled')
             self.analyze_button.config(state='disabled')
+            self.predict_button.config(state='disabled')
+            self.rca_button.config(state='disabled')
     
     def quick_health_check(self):
         """Perform a quick health assessment"""
@@ -863,14 +885,414 @@ Primary Issues Detected: {len(result.system_health.primary_issues)}
         if self.realtime_analyzer:
             import time
             test_crash = {
-                'timestamp': time.strftime('%m-%d %H:%M:%S.%f'),
+                'timestamp': time.strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
                 'app_name': 'TestApp',
                 'description': 'OutOfMemoryError: Java heap space exceeded',
                 'title': 'Test Memory Crash',
                 'related_logs': [{'message': 'Process killed low memory', 'level': 'ERROR'}]
             }
             self.realtime_analyzer.add_crash(test_crash)
-            self.log_message("\ud83e\uddea Test crash injected for real-time analysis", "info")
+            self.log_message("🧪 Test crash injected for real-time analysis", "info")
+            
+            # Also add to predictive analyzer if available
+            if self.predictive_analyzer:
+                self.predictive_analyzer.add_crash(test_crash)
+    
+    def show_predictions(self):
+        """Show crash prediction dashboard"""
+        if not self.device_connected:
+            messagebox.showerror("Error", "No device connected. Please setup your device first.")
+            return
+        
+        # Close existing prediction window if open
+        if self.prediction_window and self.prediction_window.winfo_exists():
+            self.prediction_window.lift()
+            return
+        
+        self.log_message("Generating crash predictions...")
+        
+        def predict_thread():
+            try:
+                from .analysis.predictive_analytics import PredictiveCrashAnalyzer, RiskLevel
+                
+                # Initialize predictive analyzer if needed
+                if not self.predictive_analyzer:
+                    self.predictive_analyzer = PredictiveCrashAnalyzer()
+                    
+                    # Load crashes from real-time analyzer if available
+                    if self.realtime_analyzer:
+                        for crash in list(self.realtime_analyzer.crash_buffer):
+                            self.predictive_analyzer.add_crash(crash)
+                
+                # Generate predictions
+                prediction = self.predictive_analyzer.predict_crashes(prediction_window=60)
+                
+                # Show prediction dashboard
+                self.root.after(0, lambda: self._show_prediction_dashboard(prediction))
+                
+            except ImportError:
+                self.root.after(0, lambda: self.log_message("Predictive analytics not available", "warning"))
+            except Exception as e:
+                self.root.after(0, lambda: self.log_message(f"Prediction error: {e}", "error"))
+        
+        threading.Thread(target=predict_thread, daemon=True).start()
+    
+    def _show_prediction_dashboard(self, prediction):
+        """Display prediction dashboard window"""
+        try:
+            from .analysis.predictive_analytics import RiskLevel, TrendDirection
+            
+            # Create prediction window
+            self.prediction_window = tk.Toplevel(self.root)
+            self.prediction_window.title("🔮 Crash Prediction Dashboard")
+            self.prediction_window.geometry("700x600")
+            
+            # Set background color based on risk level
+            risk_colors = {
+                RiskLevel.VERY_LOW: '#e8f5e9',    # Light green
+                RiskLevel.LOW: '#fff9c4',          # Light yellow
+                RiskLevel.MEDIUM: '#ffe0b2',       # Light orange
+                RiskLevel.HIGH: '#ffccbc',         # Light red
+                RiskLevel.CRITICAL: '#ffebee'      # Bright red
+            }
+            self.prediction_window.configure(bg=risk_colors.get(prediction.risk_level, '#ffffff'))
+            
+            # Main frame
+            main_frame = ttk.Frame(self.prediction_window, padding="20")
+            main_frame.pack(fill=tk.BOTH, expand=True)
+            
+            # Title with risk level
+            risk_icons = {
+                RiskLevel.VERY_LOW: '🟢',
+                RiskLevel.LOW: '🟡',
+                RiskLevel.MEDIUM: '🟠',
+                RiskLevel.HIGH: '🔴',
+                RiskLevel.CRITICAL: '🚨'
+            }
+            title_text = f"{risk_icons.get(prediction.risk_level, '🔵')} {prediction.risk_level.name} RISK"
+            title_label = ttk.Label(main_frame, text=title_text, font=('Arial', 20, 'bold'))
+            title_label.pack(pady=(0, 20))
+            
+            # Risk score and confidence
+            score_frame = ttk.Frame(main_frame)
+            score_frame.pack(fill=tk.X, pady=(0, 15))
+            
+            ttk.Label(score_frame, text=f"Risk Score: {prediction.risk_score:.1%}",
+                     font=('Arial', 14)).pack(side=tk.LEFT, padx=10)
+            ttk.Label(score_frame, text=f"Confidence: {prediction.confidence:.1%}",
+                     font=('Arial', 14)).pack(side=tk.LEFT, padx=10)
+            ttk.Label(score_frame, text=f"Urgency: {prediction.urgency_level}/10",
+                     font=('Arial', 14)).pack(side=tk.LEFT, padx=10)
+            
+            # Prediction
+            pred_frame = ttk.LabelFrame(main_frame, text="Next Hour Prediction", padding="15")
+            pred_frame.pack(fill=tk.X, pady=(0, 15))
+            
+            pred_text = f"📊 Predicted crashes: {prediction.predicted_crash_count}\n"
+            pred_text += f"Range: {prediction.predicted_crash_range[0]}-{prediction.predicted_crash_range[1]} crashes\n"
+            
+            trend_icons = {
+                TrendDirection.DECLINING: '📉',
+                TrendDirection.STABLE: '➡️',
+                TrendDirection.RISING: '📈',
+                TrendDirection.ACCELERATING: '🚀'
+            }
+            pred_text += f"\nTrend: {trend_icons.get(prediction.trend, '')} {prediction.trend.name}"
+            if prediction.trend_strength > 0:
+                pred_text += f" (strength: {prediction.trend_strength:.1%})"
+            
+            ttk.Label(pred_frame, text=pred_text, font=('Arial', 12)).pack()
+            
+            # Risk factors
+            if prediction.primary_risk_factors:
+                factors_frame = ttk.LabelFrame(main_frame, text="Primary Risk Factors", padding="15")
+                factors_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for factor in prediction.primary_risk_factors:
+                    score = prediction.risk_factor_scores.get(factor, 0)
+                    factor_text = f"• {factor}: {score:.1%}"
+                    ttk.Label(factors_frame, text=factor_text, font=('Arial', 11)).pack(anchor=tk.W, pady=2)
+            
+            # Recommendations
+            if prediction.recommended_actions:
+                rec_frame = ttk.LabelFrame(main_frame, text="💡 Recommendations", padding="15")
+                rec_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 15))
+                
+                rec_text = scrolledtext.ScrolledText(rec_frame, wrap=tk.WORD, height=6, font=('Arial', 11))
+                rec_text.pack(fill=tk.BOTH, expand=True)
+                
+                for i, action in enumerate(prediction.recommended_actions, 1):
+                    rec_text.insert(tk.END, f"{i}. {action}\n")
+                rec_text.config(state='disabled')
+            
+            # Action buttons
+            button_frame = ttk.Frame(main_frame)
+            button_frame.pack(pady=10)
+            
+            ttk.Button(button_frame, text="🔄 Refresh Prediction", 
+                      command=self.show_predictions).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(button_frame, text="📊 Analyze Now", 
+                      command=lambda: (self.prediction_window.destroy(), self.analyze_issues())).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(button_frame, text="Close", 
+                      command=self.prediction_window.destroy).pack(side=tk.LEFT, padx=5)
+            
+            # Timestamp
+            time_label = ttk.Label(main_frame, 
+                                  text=f"Generated: {prediction.timestamp.strftime('%Y-%m-%d %H:%M:%S')}",
+                                  font=('Arial', 9))
+            time_label.pack(pady=(10, 0))
+            
+            self.log_message(f"Prediction dashboard opened - {prediction.risk_level.name} risk detected", "info")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show prediction dashboard: {e}")
+            self.log_message(f"Dashboard error: {e}", "error")
+    
+    def show_root_cause_analysis(self):
+        """Show root cause analysis dashboard"""
+        if not self.device_connected:
+            messagebox.showerror("Error", "No device connected. Please setup your device first.")
+            return
+        
+        # Close existing RCA window if open
+        if self.rca_window and self.rca_window.winfo_exists():
+            self.rca_window.lift()
+            return
+        
+        self.log_message("Running root cause analysis...")
+        
+        def rca_thread():
+            try:
+                from .analysis.root_cause_analyzer import RootCauseAnalyzer
+                
+                # Initialize RCA analyzer if needed
+                if not self.rca_analyzer:
+                    self.rca_analyzer = RootCauseAnalyzer()
+                
+                # Get crashes from real-time analyzer or create test data
+                crashes = []
+                if self.realtime_analyzer and len(self.realtime_analyzer.crash_buffer) > 0:
+                    crashes = list(self.realtime_analyzer.crash_buffer)
+                else:
+                    # If no crashes, inform user
+                    self.root.after(0, lambda: messagebox.showinfo(
+                        "No Crash Data",
+                        "No crash data available for analysis.\n\n"
+                        "Start monitoring to collect crash data, or the test alert button to inject sample crashes."
+                    ))
+                    return
+                
+                # Run RCA
+                result = self.rca_analyzer.analyze(crashes)
+                
+                # Show RCA dashboard
+                self.root.after(0, lambda: self._show_rca_dashboard(result))
+                
+            except ImportError:
+                self.root.after(0, lambda: self.log_message("Root cause analysis not available", "warning"))
+            except Exception as e:
+                self.root.after(0, lambda: self.log_message(f"RCA error: {e}", "error"))
+        
+        threading.Thread(target=rca_thread, daemon=True).start()
+    
+    def _show_rca_dashboard(self, rca_result):
+        """Display RCA dashboard window"""
+        try:
+            from .analysis.root_cause_analyzer import CauseType, FailureMode
+            
+            # Create RCA window
+            self.rca_window = tk.Toplevel(self.root)
+            self.rca_window.title("🔬 Root Cause Analysis")
+            self.rca_window.geometry("900x700")
+            
+            # Main container with scrollbar
+            main_canvas = tk.Canvas(self.rca_window)
+            scrollbar = ttk.Scrollbar(self.rca_window, orient="vertical", command=main_canvas.yview)
+            scrollable_frame = ttk.Frame(main_canvas, padding="20")
+            
+            scrollable_frame.bind(
+                "<Configure>",
+                lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+            )
+            
+            main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+            main_canvas.configure(yscrollcommand=scrollbar.set)
+            
+            main_canvas.pack(side="left", fill="both", expand=True)
+            scrollbar.pack(side="right", fill="y")
+            
+            # Title
+            title_label = ttk.Label(scrollable_frame, 
+                                   text="🔬 Root Cause Analysis Results",
+                                   font=('Arial', 18, 'bold'))
+            title_label.pack(pady=(0, 20))
+            
+            # Analysis info
+            info_frame = ttk.Frame(scrollable_frame)
+            info_frame.pack(fill=tk.X, pady=(0, 15))
+            
+            ttk.Label(info_frame, text=f"Analysis ID: {rca_result.analysis_id}",
+                     font=('Arial', 10)).pack(side=tk.LEFT, padx=10)
+            ttk.Label(info_frame, text=f"Confidence: {rca_result.overall_confidence:.1%}",
+                     font=('Arial', 10, 'bold')).pack(side=tk.LEFT, padx=10)
+            
+            # Primary Root Causes
+            if rca_result.primary_root_causes:
+                causes_frame = ttk.LabelFrame(scrollable_frame, text="🎯 Primary Root Causes", padding="15")
+                causes_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for i, cause in enumerate(rca_result.primary_root_causes, 1):
+                    cause_container = ttk.Frame(causes_frame)
+                    cause_container.pack(fill=tk.X, pady=5)
+                    
+                    # Cause header
+                    header_text = f"{i}. {cause['cause']} (Confidence: {cause['confidence']:.1%})"
+                    ttk.Label(cause_container, text=header_text, font=('Arial', 11, 'bold')).pack(anchor=tk.W)
+                    
+                    # Description
+                    desc_text = cause['description'][:100] + "..." if len(cause['description']) > 100 else cause['description']
+                    ttk.Label(cause_container, text=f"   {desc_text}", font=('Arial', 10)).pack(anchor=tk.W, padx=20)
+                    
+                    # Frequency
+                    ttk.Label(cause_container, text=f"   Frequency: {cause['frequency']} occurrences",
+                             font=('Arial', 9)).pack(anchor=tk.W, padx=20)
+            
+            # Contributing Factors
+            if rca_result.contributing_factors:
+                factors_frame = ttk.LabelFrame(scrollable_frame, text="⚠️  Contributing Factors", padding="15")
+                factors_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for factor in rca_result.contributing_factors[:5]:
+                    factor_text = f"• {factor['factor']} ({factor['component_type']}): "
+                    factor_text += f"Health {factor['health_score']:.1%}, {factor['failure_count']} failures"
+                    ttk.Label(factors_frame, text=factor_text, font=('Arial', 10)).pack(anchor=tk.W, pady=2)
+            
+            # Dependencies (show top 5)
+            if rca_result.crash_dependencies:
+                dep_frame = ttk.LabelFrame(scrollable_frame, text="🔗 Crash Dependencies", padding="15")
+                dep_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for dep in rca_result.crash_dependencies[:5]:
+                    dep_text = f"• {dep.source_crash_id} → {dep.target_crash_id}"
+                    dep_text += f" ({dep.dependency_type}, {dep.confidence:.1%}, {dep.time_delta:.1f}s)"
+                    ttk.Label(dep_frame, text=dep_text, font=('Arial', 10)).pack(anchor=tk.W, pady=2)
+                
+                if len(rca_result.crash_dependencies) > 5:
+                    ttk.Label(dep_frame, text=f"... and {len(rca_result.crash_dependencies) - 5} more",
+                             font=('Arial', 9, 'italic')).pack(anchor=tk.W, pady=2)
+            
+            # Causal Chains
+            if rca_result.causal_chains:
+                chains_frame = ttk.LabelFrame(scrollable_frame, text="🔗 Causal Chains", padding="15")
+                chains_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for i, chain in enumerate(rca_result.causal_chains[:3], 1):
+                    chain_container = ttk.Frame(chains_frame)
+                    chain_container.pack(fill=tk.X, pady=5)
+                    
+                    chain_header = f"Chain {i}: {len(chain.events)} events, confidence {chain.confidence:.1%}"
+                    if chain.failure_mode:
+                        chain_header += f" ({chain.failure_mode.value})"
+                    ttk.Label(chain_container, text=chain_header, font=('Arial', 10, 'bold')).pack(anchor=tk.W)
+                    
+                    # Show event flow
+                    for j, event in enumerate(chain.events[:4]):  # Show first 4 events
+                        role = event.get('role', 'unknown').upper()
+                        crash_id = event.get('crash_id', 'unknown')
+                        arrow = " → " if j < len(chain.events) - 1 else ""
+                        event_text = f"   {role}: {crash_id}{arrow}"
+                        ttk.Label(chain_container, text=event_text, font=('Arial', 9)).pack(anchor=tk.W, padx=20)
+            
+            # Evidence
+            if rca_result.evidence_summary:
+                evidence_frame = ttk.LabelFrame(scrollable_frame, text="📋 Evidence", padding="15")
+                evidence_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for evidence in rca_result.evidence_summary:
+                    ttk.Label(evidence_frame, text=f"• {evidence}", font=('Arial', 10)).pack(anchor=tk.W, pady=2)
+            
+            # Remediation Steps
+            if rca_result.remediation_steps:
+                remediation_frame = ttk.LabelFrame(scrollable_frame, text="🔧 Remediation Steps", padding="15")
+                remediation_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for i, step in enumerate(rca_result.remediation_steps, 1):
+                    ttk.Label(remediation_frame, text=f"{i}. {step}", font=('Arial', 10)).pack(anchor=tk.W, pady=2)
+            
+            # Prevention Measures
+            if rca_result.prevention_measures:
+                prevention_frame = ttk.LabelFrame(scrollable_frame, text="🛡️  Prevention Measures", padding="15")
+                prevention_frame.pack(fill=tk.X, pady=(0, 15))
+                
+                for i, measure in enumerate(rca_result.prevention_measures, 1):
+                    ttk.Label(prevention_frame, text=f"{i}. {measure}", font=('Arial', 10)).pack(anchor=tk.W, pady=2)
+            
+            # Action buttons
+            button_frame = ttk.Frame(scrollable_frame)
+            button_frame.pack(pady=20)
+            
+            ttk.Button(button_frame, text="💾 Save Report",
+                      command=lambda: self._save_rca_report(rca_result)).pack(side=tk.LEFT, padx=5)
+            
+            ttk.Button(button_frame, text="Close",
+                      command=self.rca_window.destroy).pack(side=tk.LEFT, padx=5)
+            
+            self.log_message(f"RCA completed - {len(rca_result.primary_root_causes)} root causes identified", "success")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to show RCA dashboard: {e}")
+            self.log_message(f"RCA dashboard error: {e}", "error")
+    
+    def _save_rca_report(self, rca_result):
+        """Save RCA report to file"""
+        filename = filedialog.asksaveasfilename(
+            defaultextension=".txt",
+            filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
+            initialfile=f"rca_{rca_result.analysis_id}.txt",
+            title="Save RCA Report As..."
+        )
+        
+        if filename:
+            try:
+                with open(filename, 'w') as f:
+                    f.write(f"Root Cause Analysis Report\n")
+                    f.write(f"{'=' * 60}\n\n")
+                    f.write(f"Analysis ID: {rca_result.analysis_id}\n")
+                    f.write(f"Timestamp: {rca_result.timestamp}\n")
+                    f.write(f"Overall Confidence: {rca_result.overall_confidence:.1%}\n\n")
+                    
+                    if rca_result.primary_root_causes:
+                        f.write(f"\nPrimary Root Causes:\n")
+                        f.write(f"{'-' * 40}\n")
+                        for i, cause in enumerate(rca_result.primary_root_causes, 1):
+                            f.write(f"{i}. {cause['cause']} (Confidence: {cause['confidence']:.1%})\n")
+                            f.write(f"   {cause['description']}\n")
+                            f.write(f"   Frequency: {cause['frequency']}\n\n")
+                    
+                    if rca_result.contributing_factors:
+                        f.write(f"\nContributing Factors:\n")
+                        f.write(f"{'-' * 40}\n")
+                        for factor in rca_result.contributing_factors:
+                            f.write(f"- {factor['factor']} ({factor['component_type']})\n")
+                            f.write(f"  Health: {factor['health_score']:.1%}, Failures: {factor['failure_count']}\n")
+                    
+                    if rca_result.remediation_steps:
+                        f.write(f"\nRemediation Steps:\n")
+                        f.write(f"{'-' * 40}\n")
+                        for i, step in enumerate(rca_result.remediation_steps, 1):
+                            f.write(f"{i}. {step}\n")
+                    
+                    if rca_result.prevention_measures:
+                        f.write(f"\nPrevention Measures:\n")
+                        f.write(f"{'-' * 40}\n")
+                        for i, measure in enumerate(rca_result.prevention_measures, 1):
+                            f.write(f"{i}. {measure}\n")
+                
+                self.log_message(f"RCA report saved to {filename}", "success")
+            except Exception as e:
+                self.log_message(f"Error saving RCA report: {e}", "error")
     
     def show_help(self):
         """Show help dialog"""
