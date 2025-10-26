@@ -148,4 +148,7 @@ Thumbs.db
 android_logs/
 .tmp_setup/
 config/
-*.log
+*.log*.dmg
+.temp*
+build/
+dist/
