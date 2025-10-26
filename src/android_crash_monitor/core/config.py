@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 from platformdirs import user_config_dir, user_data_dir
 
 
@@ -67,8 +67,7 @@ class MonitoringConfig(BaseModel):
     export_format: str = Field(default="json", pattern="^(json|csv|html|txt)$")
     export_on_crash: bool = True
     
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class DeviceConfig(BaseModel):
@@ -101,7 +100,8 @@ class Config(BaseModel):
     profile_name: str = "default"
     last_updated: Optional[str] = None
     
-    @validator('adb_path')
+    @field_validator('adb_path')
+    @classmethod
     def validate_adb_path(cls, v):
         if v and not Path(v).exists():
             raise ValueError(f"ADB path does not exist: {v}")
@@ -120,9 +120,7 @@ class Config(BaseModel):
         config_manager = ConfigManager()
         config_manager.save_profile(self, self.profile_name, config_file)
     
-    class Config:
-        # Allow arbitrary types for flexibility
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class ConfigManager:

@@ -8,8 +8,18 @@ import sys
 import os
 from pathlib import Path
 
+# Check if we have a virtual environment and use it
+current_dir = Path(__file__).parent
+venv_python = current_dir / "venv" / "bin" / "python3"
+
+if venv_python.exists() and not sys.executable.endswith(str(venv_python)):
+    print(f"Found virtual environment: {venv_python}")
+    print("Using virtual environment with all dependencies...")
+    # Re-execute with virtual environment Python
+    os.execv(str(venv_python), [str(venv_python)] + sys.argv)
+
 # On macOS, prefer Homebrew Python over system Python to avoid tkinter deprecation
-if sys.platform == 'darwin' and 'Xcode' in sys.executable:
+if sys.platform == 'darwin' and 'Xcode' in sys.executable and not venv_python.exists():
     # Try to find Homebrew Python (both Intel and Apple Silicon paths)
     homebrew_paths = [
         '/opt/homebrew/bin/python3',  # Apple Silicon
