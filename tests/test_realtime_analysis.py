@@ -15,7 +15,7 @@ def test_realtime_analysis():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.realtime_analyzer import (
+        from android_crash_monitor.analysis.realtime_analyzer import (
             RealtimePatternAnalyzer, RealTimeAlert, AlertLevel
         )
         
@@ -203,7 +203,7 @@ def test_alert_thresholds():
     print("=" * 40)
     
     try:
-        from src.android_crash_monitor.analysis.realtime_analyzer import (
+        from android_crash_monitor.analysis.realtime_analyzer import (
             RealtimePatternAnalyzer, PatternSeverity, AlertLevel
         )
         
@@ -247,7 +247,7 @@ def test_performance():
     print("=" * 35)
     
     try:
-        from src.android_crash_monitor.analysis.realtime_analyzer import RealtimePatternAnalyzer
+        from android_crash_monitor.analysis.realtime_analyzer import RealtimePatternAnalyzer
         import time
         
         analyzer = RealtimePatternAnalyzer()

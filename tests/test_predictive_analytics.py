@@ -15,7 +15,7 @@ def test_feature_extraction():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.predictive_analytics import (
+        from android_crash_monitor.analysis.predictive_analytics import (
             CrashFeatureExtractor, TrendDirection
         )
         
@@ -103,7 +103,7 @@ def test_crash_prediction():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.predictive_analytics import (
+        from android_crash_monitor.analysis.predictive_analytics import (
             PredictiveCrashAnalyzer, RiskLevel, TrendDirection
         )
         
@@ -222,7 +222,7 @@ def test_prediction_validation():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.predictive_analytics import (
+        from android_crash_monitor.analysis.predictive_analytics import (
             PredictiveCrashAnalyzer, CrashPrediction, RiskLevel
         )
         
@@ -288,7 +288,7 @@ def test_edge_cases():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.predictive_analytics import (
+        from android_crash_monitor.analysis.predictive_analytics import (
             PredictiveCrashAnalyzer, CrashFeatureExtractor
         )
         

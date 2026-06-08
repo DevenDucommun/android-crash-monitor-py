@@ -14,7 +14,7 @@ def test_dependency_analysis():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.root_cause_analyzer import (
+        from android_crash_monitor.analysis.root_cause_analyzer import (
             DependencyAnalyzer, ComponentType
         )
         
@@ -90,7 +90,7 @@ def test_fault_tree_analysis():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.root_cause_analyzer import (
+        from android_crash_monitor.analysis.root_cause_analyzer import (
             FaultTreeAnalyzer, DependencyAnalyzer, FailureMode
         )
         
@@ -168,7 +168,7 @@ def test_causal_inference():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.root_cause_analyzer import (
+        from android_crash_monitor.analysis.root_cause_analyzer import (
             CausalInferenceEngine, DependencyAnalyzer
         )
         
@@ -245,7 +245,7 @@ def test_full_rca():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.root_cause_analyzer import RootCauseAnalyzer
+        from android_crash_monitor.analysis.root_cause_analyzer import RootCauseAnalyzer
         
         # Create realistic crash scenario
         current_time = datetime.now()
@@ -356,7 +356,7 @@ def test_edge_cases():
     print("=" * 50)
     
     try:
-        from src.android_crash_monitor.analysis.root_cause_analyzer import RootCauseAnalyzer
+        from android_crash_monitor.analysis.root_cause_analyzer import RootCauseAnalyzer
         
         successes = []
         
