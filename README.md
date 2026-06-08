@@ -14,6 +14,9 @@ A cross-platform Android crash monitoring tool with real-time log analysis, inte
 - **Crash pattern detection** — identifies ANRs, native crashes, Java exceptions, and cascade failures
 - **Root cause analysis** — correlates events across log streams to find the trigger
 - **Predictive analytics** — detects patterns that precede crashes (memory pressure, thermal throttling)
+- **SQLite crash database** — persistent history with query, filtering, and retention policies
+- **Environment diagnostics** — `acm doctor` checks ADB, devices, permissions with fix suggestions
+- **TOML configuration** — `~/.config/acm/config.toml` for thresholds, device aliases, notifications
 - **Multi-device support** — monitors multiple connected Android devices concurrently
 - **Export** — JSON, CSV, HTML reports with severity classification
 - **macOS GUI** — drag-and-drop `.dmg` installer for non-technical users
@@ -63,11 +66,13 @@ acm start -vvv
 
 | Command | Description |
 |---------|-------------|
-| `acm setup` | Interactive first-run configuration |
-| `acm start` | Start real-time crash monitoring |
-| `acm analyze` | Analyze collected crash data |
+| `acm start` | One-command setup and monitoring |
+| `acm doctor` | Diagnose environment (ADB, devices, permissions) |
+| `acm history` | Query crash history from local SQLite database |
+| `acm analyze` | Analyze collected crash data for patterns |
 | `acm monitor` | Start monitoring (post-setup) |
-| `acm logs --last 1h` | View logs from the last hour |
+| `acm logs --export json` | Export crash data to JSON/CSV/HTML |
+| `acm setup` | Interactive first-run configuration |
 
 ### GUI
 
@@ -86,7 +91,10 @@ src/android_crash_monitor/
 ├── core/
 │   ├── adb.py           # ADB connection management
 │   ├── monitor.py       # Log stream orchestration
-│   ├── config.py        # Configuration management
+│   ├── database.py      # SQLite crash persistence
+│   ├── doctor.py        # Environment diagnostics
+│   ├── user_config.py   # TOML configuration
+│   ├── config.py        # Internal monitoring config
 │   └── enhanced_*.py    # Advanced detection engines
 ├── analysis/
 │   ├── crash_analyzer.py        # Crash classification
@@ -109,7 +117,7 @@ pip install -e ".[build]"
 
 This produces:
 - `dist/Android Crash Monitor.app` — standalone macOS application
-- `AndroidCrashMonitor-2.1.0.dmg` — distributable disk image installer
+- `AndroidCrashMonitor-2.2.0.dmg` — distributable disk image installer
 
 The build uses PyInstaller to bundle Python + dependencies into a self-contained `.app`, then dmgbuild to create a drag-to-install `.dmg` with Applications shortcut.
 
