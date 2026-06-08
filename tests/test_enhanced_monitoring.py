@@ -12,17 +12,13 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Import the enhanced components
-try:
-    from src.android_crash_monitor.core.enhanced_patterns import EnhancedCrashPatterns
-    from src.android_crash_monitor.core.enhanced_alerts import EnhancedAlertingSystem
-    from src.android_crash_monitor.core.enhanced_detector import EnhancedCrashDetector
-    from src.android_crash_monitor.core.monitor import LogEntry, LogLevel
-    from src.android_crash_monitor.ui.console import ConsoleUI
-except ImportError as e:
-    print(f"Error importing modules: {e}")
-    print("Please run from the project root directory")
-    exit(1)
+import pytest
+
+from android_crash_monitor.core.enhanced_patterns import EnhancedCrashPatterns
+from android_crash_monitor.core.enhanced_alerts import EnhancedAlertingSystem
+from android_crash_monitor.core.enhanced_detector import EnhancedCrashDetector
+from android_crash_monitor.core.monitor import LogEntry, LogLevel
+from android_crash_monitor.ui.console import ConsoleUI
 
 class EnhancedMonitoringTester:
     """Test suite for enhanced monitoring capabilities."""

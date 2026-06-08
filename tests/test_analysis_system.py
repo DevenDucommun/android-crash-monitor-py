@@ -11,9 +11,9 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 
-from src.android_crash_monitor.analysis.crash_analyzer import CrashAnalyzer
-from src.android_crash_monitor.analysis.report_generator import ReportGenerator
-from src.android_crash_monitor.analysis.pattern_detector import PatternDetector
+from android_crash_monitor.analysis.crash_analyzer import CrashAnalyzer
+from android_crash_monitor.analysis.report_generator import ReportGenerator
+from android_crash_monitor.analysis.pattern_detector import PatternDetector
 
 def create_sample_crash_data():
     """Create sample crash data for testing."""

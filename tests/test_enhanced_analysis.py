@@ -144,7 +144,7 @@ def test_enhanced_analysis():
         # Test enhanced analysis
         print("\n2. Running enhanced analysis...")
         try:
-            from src.android_crash_monitor.analysis.enhanced_analyzer import EnhancedCrashAnalyzer
+            from android_crash_monitor.analysis.enhanced_analyzer import EnhancedCrashAnalyzer
             
             analyzer = EnhancedCrashAnalyzer(logs_dir, confidence_threshold=0.5)
             result = analyzer.analyze_comprehensive()
@@ -212,7 +212,7 @@ def test_statistical_features():
     print("=" * 35)
     
     try:
-        from src.android_crash_monitor.analysis.enhanced_pattern_detector import StatisticalPatternDetector, PatternSeverity
+        from android_crash_monitor.analysis.enhanced_pattern_detector import StatisticalPatternDetector, PatternSeverity
         
         detector = StatisticalPatternDetector(confidence_threshold=0.4)
         
