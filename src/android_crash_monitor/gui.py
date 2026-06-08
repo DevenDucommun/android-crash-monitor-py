@@ -337,7 +337,7 @@ class AndroidCrashMonitorGUI:
                     self.root.after(0, lambda l=line.strip(): self.log_message(l) if l else None)
                     
             except Exception as e:
-                self.root.after(0, lambda: self.log_message(f"Monitoring error: {str(e)}", "error"))
+                self.root.after(0, lambda err=e: self.log_message(f"Monitoring error: {str(err)}", "error"))
             finally:
                 # Reset monitoring state
                 self.root.after(0, self.stop_monitoring)
@@ -400,7 +400,7 @@ class AndroidCrashMonitorGUI:
                     self.root.after(0, lambda: self.log_message("Analysis completed with some warnings.", "warning"))
                     
             except Exception as e:
-                self.root.after(0, lambda: self.log_message(f"Enhanced analysis error: {str(e)}", "error"))
+                self.root.after(0, lambda err=e: self.log_message(f"Enhanced analysis error: {str(err)}", "error"))
                 # Fallback to traditional analysis
                 if os.path.exists("src/android_crash_monitor"):
                     result = self.run_command("python -m android_crash_monitor.cli analyze --summary", 
@@ -463,7 +463,7 @@ class AndroidCrashMonitorGUI:
                 self.root.after(0, lambda: self.display_fix_results(report, results))
                 
             except Exception as e:
-                self.root.after(0, lambda: self.log_message(f"Auto-fix error: {str(e)}", "error"))
+                self.root.after(0, lambda err=e: self.log_message(f"Auto-fix error: {str(err)}", "error"))
         
         threading.Thread(target=fix_thread, daemon=True).start()
     
@@ -933,7 +933,7 @@ Primary Issues Detected: {len(result.system_health.primary_issues)}
             except ImportError:
                 self.root.after(0, lambda: self.log_message("Predictive analytics not available", "warning"))
             except Exception as e:
-                self.root.after(0, lambda: self.log_message(f"Prediction error: {e}", "error"))
+                self.root.after(0, lambda err=e: self.log_message(f"Prediction error: {err}", "error"))
         
         threading.Thread(target=predict_thread, daemon=True).start()
     
@@ -1093,7 +1093,7 @@ Primary Issues Detected: {len(result.system_health.primary_issues)}
             except ImportError:
                 self.root.after(0, lambda: self.log_message("Root cause analysis not available", "warning"))
             except Exception as e:
-                self.root.after(0, lambda: self.log_message(f"RCA error: {e}", "error"))
+                self.root.after(0, lambda err=e: self.log_message(f"RCA error: {err}", "error"))
         
         threading.Thread(target=rca_thread, daemon=True).start()
     
