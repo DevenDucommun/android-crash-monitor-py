@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "android-crash-monitor"
-version = "2.1.0"
+version = "2.2.0"
 description = "Cross-platform Android crash monitoring with real-time log analysis, pattern detection, and automated reporting"
 readme = "README.md"
 license = "MIT"
