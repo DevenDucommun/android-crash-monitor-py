@@ -649,6 +649,129 @@ def gui(ctx):
         sys.exit(1)
 
 
+
+@cli.command()
+@click.pass_context
+def doctor(ctx):
+    """Diagnose environment and connectivity issues.
+
+    Checks Python version, ADB installation, device connectivity,
+    file permissions, and configuration status.
+    """
+    from rich.table import Table
+    from .core.doctor import run_checks, Status
+
+    checks = run_checks()
+
+    table = Table(title="ACM Doctor", show_header=True)
+    table.add_column("Check", style="bold")
+    table.add_column("Status")
+    table.add_column("Details")
+    table.add_column("Fix", style="dim")
+
+    status_style = {
+        Status.PASS: "[green]✓ pass[/green]",
+        Status.FAIL: "[red]✗ FAIL[/red]",
+        Status.WARN: "[yellow]! warn[/yellow]",
+    }
+
+    for check in checks:
+        table.add_row(
+            check.name,
+            status_style[check.status],
+            check.message,
+            check.fix or "",
+        )
+
+    console.print(table)
+
+    failures = [c for c in checks if c.status == Status.FAIL]
+    if failures:
+        console.print(f"\n[red]{len(failures)} issue(s) need attention.[/red]")
+    else:
+        console.print("\n[green]✅ All checks passed![/green]")
+
+
+@cli.command()
+@click.option('--app', '-a', help='Filter by app name')
+@click.option('--severity', '-s', type=int, help='Minimum severity level')
+@click.option('--since', help='Show crashes since (ISO date or relative: 1h, 7d)')
+@click.option('--limit', '-n', default=20, help='Number of results (default: 20)')
+@click.option('--stats', is_flag=True, help='Show crash statistics')
+@click.pass_context
+def history(ctx, app, severity, since, limit, stats):
+    """View crash history from the local database.
+
+    Examples:
+      acm history                    # Last 20 crashes
+      acm history --app MyApp        # Filter by app
+      acm history -s 7               # Severity 7+
+      acm history --since 24h        # Last 24 hours
+      acm history --stats            # Show statistics
+    """
+    from rich.table import Table
+    from .core.database import CrashDatabase
+
+    db = CrashDatabase()
+
+    if stats:
+        data = db.get_stats()
+        console.print("\n[bold]Crash Database Statistics[/bold]")
+        console.print(f"  Total crashes: {data['total']}")
+        console.print(f"  Last 24 hours: {data['last_24h']}")
+        if data['top_apps']:
+            console.print("\n  [bold]Top apps:[/bold]")
+            for app_name, count in data['top_apps']:
+                console.print(f"    {app_name or '(unknown)'}: {count}")
+        return
+
+    since_val = since
+    if since and since[-1] in 'hdm':
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        try:
+            amount = int(since[:-1])
+            unit = since[-1]
+            if unit == 'h':
+                since_val = (now - timedelta(hours=amount)).isoformat()
+            elif unit == 'd':
+                since_val = (now - timedelta(days=amount)).isoformat()
+            elif unit == 'm':
+                since_val = (now - timedelta(minutes=amount)).isoformat()
+        except ValueError:
+            pass
+
+    results = db.query_crashes(app=app, severity=severity, since=since_val, limit=limit)
+
+    if not results:
+        console.print("[yellow]No crashes found matching criteria.[/yellow]")
+        console.print("Tip: crashes are recorded during monitoring sessions.")
+        return
+
+    table = Table(title=f"Crash History ({len(results)} results)", show_header=True)
+    table.add_column("Time", style="dim", max_width=19)
+    table.add_column("App")
+    table.add_column("Sev", justify="center")
+    table.add_column("Description", max_width=50)
+
+    for row in results:
+        sev = row.get('severity', 0) or 0
+        sev_style = "[red]" if sev >= 7 else "[yellow]" if sev >= 4 else ""
+        sev_end = "[/red]" if sev >= 7 else "[/yellow]" if sev >= 4 else ""
+
+        ts = (row.get('timestamp') or '')[:19]
+        desc = (row.get('description') or '')[:50]
+
+        table.add_row(
+            ts,
+            row.get('app_name') or '—',
+            f"{sev_style}{sev}{sev_end}",
+            desc,
+        )
+
+    console.print(table)
+
+
 def main():
     """Main entry point for the CLI application."""
     try:
