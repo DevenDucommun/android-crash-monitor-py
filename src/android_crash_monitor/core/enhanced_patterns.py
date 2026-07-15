@@ -15,7 +15,7 @@ patterns identified from the System.err crash analysis, focusing on:
 
 import re
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 
 
@@ -153,7 +153,7 @@ class CascadeDetector:
         # Check if we have a cascade
         return len(self.recent_crashes) >= self.threshold_count
     
-    def get_cascade_info(self) -> Dict[str, any]:
+    def get_cascade_info(self) -> Dict[str, Any]:
         """Get information about the current cascade."""
         if len(self.recent_crashes) < self.threshold_count:
             return {}

@@ -13,7 +13,7 @@ import os
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Any, List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
 from ..utils.logger import get_logger
@@ -212,7 +212,7 @@ class CrashAnalyzer:
         }
         return recommendations.get(pattern_name, "Monitor pattern and investigate root cause")
         
-    def analyze_timeline(self) -> Dict[str, any]:
+    def analyze_timeline(self) -> Dict[str, Any]:
         """Analyze crash timeline for patterns."""
         if not self.crashes:
             return {}
@@ -325,7 +325,7 @@ class CrashAnalyzer:
             summary=summary
         )
         
-    def generate_analysis_report(self) -> Dict[str, any]:
+    def generate_analysis_report(self) -> Dict[str, Any]:
         """Generate comprehensive analysis report."""
         patterns = self.analyze_crash_patterns()
         timeline = self.analyze_timeline()

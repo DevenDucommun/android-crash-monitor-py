@@ -9,7 +9,7 @@ complex crash patterns and correlations.
 import re
 import math
 from collections import Counter, defaultdict
-from typing import List, Dict, Tuple, Optional, Set
+from typing import Any, List, Dict, Tuple, Optional, Set
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -26,7 +26,7 @@ class PatternMatch:
     evidence: List[str]
     frequency: int
     severity_score: float
-    metadata: Dict[str, any]
+    metadata: Dict[str, Any]
 
 
 class PatternDetector:
@@ -356,7 +356,7 @@ class PatternDetector:
         time_span = max(timestamps) - min(timestamps)
         return time_span.total_seconds() / 60.0  # Convert to minutes
         
-    def detect_anomalies(self, crashes: List[Dict]) -> List[Dict[str, any]]:
+    def detect_anomalies(self, crashes: List[Dict]) -> List[Dict[str, Any]]:
         """Detect statistical anomalies in crash data."""
         anomalies = []
         
@@ -371,7 +371,7 @@ class PatternDetector:
         
         return anomalies
         
-    def _detect_frequency_anomalies(self, frequencies: Counter) -> List[Dict[str, any]]:
+    def _detect_frequency_anomalies(self, frequencies: Counter) -> List[Dict[str, Any]]:
         """Detect apps with unusually high crash frequencies."""
         if not frequencies:
             return []
@@ -395,7 +395,7 @@ class PatternDetector:
                 
         return anomalies
         
-    def _detect_timing_anomalies(self, crashes: List[Dict]) -> List[Dict[str, any]]:
+    def _detect_timing_anomalies(self, crashes: List[Dict]) -> List[Dict[str, Any]]:
         """Detect unusual timing patterns in crashes."""
         # Group crashes by hour to detect timing patterns
         hour_counts = defaultdict(int)
