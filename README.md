@@ -1,7 +1,7 @@
 # Android Crash Monitor
 
 [![CI](https://github.com/DevenDucommun/android-crash-monitor-py/actions/workflows/ci.yml/badge.svg)](https://github.com/DevenDucommun/android-crash-monitor-py/actions/workflows/ci.yml)
-[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A cross-platform Android crash monitoring tool with real-time log analysis, intelligent pattern detection, and automated reporting. Supports both a CLI for developers and a GUI for non-technical users.
@@ -130,7 +130,7 @@ pytest tests/ -v
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+
 - ADB (Android Debug Bridge) installed and in PATH
 - Android device with USB debugging enabled
 

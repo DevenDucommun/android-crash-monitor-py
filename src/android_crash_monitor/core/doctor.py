@@ -39,13 +39,13 @@ def run_checks() -> List[Check]:
 
 def _check_python() -> Check:
     v = sys.version_info
-    if v >= (3, 9):
+    if v >= (3, 10):
         return Check("Python version", Status.PASS, f"{v.major}.{v.minor}.{v.micro}")
     return Check(
         "Python version",
         Status.FAIL,
-        f"{v.major}.{v.minor} (need 3.9+)",
-        fix="Install Python 3.9+ from python.org or your package manager",
+        f"{v.major}.{v.minor} (need 3.10+)",
+        fix="Install Python 3.10+ from python.org or your package manager",
     )
 
 
