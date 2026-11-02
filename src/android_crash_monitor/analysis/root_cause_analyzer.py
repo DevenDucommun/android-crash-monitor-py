@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from collections import defaultdict, Counter
 from enum import Enum
 import re
+from ..utils.time_utils import parse_android_timestamp
 
 
 class CauseType(Enum):
@@ -282,26 +283,7 @@ class DependencyAnalyzer:
     
     def _parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
         """Parse crash timestamp"""
-        if not timestamp_str:
-            return None
-        
-        formats = [
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S',
-            '%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S'
-        ]
-        
-        for fmt in formats:
-            try:
-                parsed = datetime.strptime(timestamp_str.strip(), fmt)
-                if parsed.year == 1900:
-                    parsed = parsed.replace(year=datetime.now().year)
-                return parsed
-            except ValueError:
-                continue
-        
-        return None
+        return parse_android_timestamp(timestamp_str)
 
 
 class FaultTreeAnalyzer:

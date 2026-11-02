@@ -17,6 +17,7 @@ from enum import Enum
 import json
 
 from .enhanced_pattern_detector import StatisticalPatternDetector, EnhancedPattern, PatternSeverity, PatternType
+from ..utils.time_utils import parse_android_timestamp
 
 class AlertLevel(Enum):
     LOW = 1
@@ -295,28 +296,7 @@ class RealtimePatternAnalyzer:
     
     def _get_crash_timestamp(self, crash: Dict) -> Optional[datetime]:
         """Parse crash timestamp"""
-        timestamp_str = crash.get('timestamp', '')
-        if not timestamp_str:
-            return None
-        
-        formats = [
-            '%Y-%m-%d %H:%M:%S.%f',  # Try with year first
-            '%Y-%m-%d %H:%M:%S',
-            '%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S'
-        ]
-        
-        for fmt in formats:
-            try:
-                parsed = datetime.strptime(timestamp_str.strip(), fmt)
-                # For formats without year, assume current year
-                if '%Y' not in fmt:
-                    parsed = parsed.replace(year=datetime.now().year)
-                return parsed
-            except ValueError:
-                continue
-        
-        return None
+        return parse_android_timestamp(crash.get('timestamp', ''))
     
     def _update_pattern_tracking(self, pattern: EnhancedPattern) -> None:
         """Update pattern tracking with new detection"""

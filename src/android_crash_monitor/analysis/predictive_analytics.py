@@ -13,6 +13,7 @@ from collections import defaultdict, deque
 from enum import Enum
 import statistics
 import math
+from ..utils.time_utils import parse_android_timestamp
 
 
 class RiskLevel(Enum):
@@ -321,27 +322,7 @@ class CrashFeatureExtractor:
     
     def _parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
         """Parse crash timestamp"""
-        if not timestamp_str:
-            return None
-        
-        formats = [
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S',
-            '%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S'
-        ]
-        
-        for fmt in formats:
-            try:
-                parsed = datetime.strptime(timestamp_str.strip(), fmt)
-                # If year not in timestamp, assume current year
-                if parsed.year == 1900:
-                    parsed = parsed.replace(year=datetime.now().year)
-                return parsed
-            except ValueError:
-                continue
-        
-        return None
+        return parse_android_timestamp(timestamp_str)
 
 
 class PredictiveCrashAnalyzer:

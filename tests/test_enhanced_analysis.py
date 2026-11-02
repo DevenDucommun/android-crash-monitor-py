@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta
 import random
+from android_crash_monitor.utils.time_utils import parse_android_timestamp
 
 def create_sample_crash_data(output_dir: Path, num_crashes: int = 50) -> None:
     """Create sample crash data for testing"""
@@ -115,7 +116,7 @@ def create_sample_crash_data(output_dir: Path, num_crashes: int = 50) -> None:
         crashes.append(crash)
     
     # Sort by timestamp
-    crashes.sort(key=lambda x: datetime.strptime(x['timestamp'], '%m-%d %H:%M:%S.%f'))
+    crashes.sort(key=lambda x: parse_android_timestamp(x['timestamp']))
     
     # Save crashes to individual JSON files
     output_dir.mkdir(exist_ok=True)
@@ -127,7 +128,7 @@ def create_sample_crash_data(output_dir: Path, num_crashes: int = 50) -> None:
     
     print(f"Created {len(crashes)} sample crashes in {output_dir}")
 
-def test_enhanced_analysis():
+def _check_enhanced_analysis():
     """Test the enhanced analysis system"""
     print("🧪 Testing Enhanced Pattern Detection System")
     print("=" * 50)
@@ -206,7 +207,7 @@ def test_enhanced_analysis():
             traceback.print_exc()
             return False
 
-def test_statistical_features():
+def _check_statistical_features():
     """Test specific statistical features"""
     print("\n🔬 Testing Statistical Features")
     print("=" * 35)
@@ -275,15 +276,23 @@ def test_statistical_features():
         traceback.print_exc()
         return False
 
+def test_statistical_features():
+    assert _check_statistical_features() is not False, "check reported failure; see captured output"
+
+
+def test_enhanced_analysis():
+    assert _check_enhanced_analysis() is not False, "check reported failure; see captured output"
+
+
 if __name__ == "__main__":
     print("🚀 Enhanced Pattern Detection Test Suite")
     print("=" * 50)
     
     # Test 1: Enhanced analysis system
-    test1_success = test_enhanced_analysis()
+    test1_success = _check_enhanced_analysis()
     
     # Test 2: Statistical features
-    test2_success = test_statistical_features()
+    test2_success = _check_statistical_features()
     
     # Summary
     print(f"\n📊 Test Results Summary:")

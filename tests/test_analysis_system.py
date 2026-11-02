@@ -101,7 +101,7 @@ def create_sample_crash_data():
     
     return sample_crashes
 
-def test_analysis_system():
+def _check_analysis_system():
     """Test the complete analysis system."""
     print("🧪 Testing Android Crash Monitor Analysis System")
     print("=" * 60)
@@ -170,5 +170,9 @@ def test_analysis_system():
         
         return report
 
+def test_analysis_system():
+    assert _check_analysis_system() is not False, "check reported failure; see captured output"
+
+
 if __name__ == "__main__":
-    test_analysis_system()
+    _check_analysis_system()

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 import statistics
+from ..utils.time_utils import parse_android_timestamp
 
 class PatternSeverity(Enum):
     LOW = 1
@@ -431,28 +432,7 @@ class StatisticalPatternDetector:
     
     def _parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
         """Parse timestamp string to datetime object"""
-        if not timestamp_str:
-            return None
-        
-        # Try different timestamp formats (prefer formats with year)
-        formats = [
-            '%Y-%m-%d %H:%M:%S.%f',
-            '%Y-%m-%d %H:%M:%S',
-            '%m-%d %H:%M:%S.%f',
-            '%m-%d %H:%M:%S'
-        ]
-        
-        for fmt in formats:
-            try:
-                parsed = datetime.strptime(timestamp_str.strip(), fmt)
-                # For formats without year, assume current year
-                if '%Y' not in fmt:
-                    parsed = parsed.replace(year=datetime.now().year)
-                return parsed
-            except ValueError:
-                continue
-        
-        return None
+        return parse_android_timestamp(timestamp_str)
     
     def _calculate_frequency_score(self, pattern_matches: int, total_crashes: int) -> float:
         """Calculate frequency-based score (0.0-1.0)"""

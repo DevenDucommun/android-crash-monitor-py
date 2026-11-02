@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 import time
 
 
-def test_feature_extraction():
+def _check_feature_extraction():
     """Test feature extraction from crash data"""
     print("🔬 Testing Feature Extraction")
     print("=" * 50)
@@ -97,7 +97,7 @@ def test_feature_extraction():
         return False
 
 
-def test_crash_prediction():
+def _check_crash_prediction():
     """Test crash prediction engine"""
     print("\n🔮 Testing Crash Prediction Engine")
     print("=" * 50)
@@ -216,7 +216,7 @@ def test_crash_prediction():
         return False
 
 
-def test_prediction_validation():
+def _check_prediction_validation():
     """Test prediction accuracy tracking"""
     print("\n📈 Testing Prediction Validation")
     print("=" * 50)
@@ -282,7 +282,7 @@ def test_prediction_validation():
         return False
 
 
-def test_edge_cases():
+def _check_edge_cases():
     """Test edge cases and robustness"""
     print("\n🔧 Testing Edge Cases")
     print("=" * 50)
@@ -358,15 +358,31 @@ def test_edge_cases():
         return False
 
 
+def test_feature_extraction():
+    assert _check_feature_extraction() is not False, "check reported failure; see captured output"
+
+
+def test_crash_prediction():
+    assert _check_crash_prediction() is not False, "check reported failure; see captured output"
+
+
+def test_prediction_validation():
+    assert _check_prediction_validation() is not False, "check reported failure; see captured output"
+
+
+def test_edge_cases():
+    assert _check_edge_cases() is not False, "check reported failure; see captured output"
+
+
 if __name__ == "__main__":
     print("🚀 Predictive Analytics Test Suite")
     print("=" * 50)
     
     # Run tests
-    test1_success = test_feature_extraction()
-    test2_success = test_crash_prediction()
-    test3_success = test_prediction_validation()
-    test4_success = test_edge_cases()
+    test1_success = _check_feature_extraction()
+    test2_success = _check_crash_prediction()
+    test3_success = _check_prediction_validation()
+    test4_success = _check_edge_cases()
     
     # Summary
     print(f"\n" + "=" * 50)
