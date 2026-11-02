@@ -196,9 +196,7 @@ def load_session_stats(stats_file: Path) -> Optional[MonitoringStats]:
         with open(stats_file, 'r', encoding='utf-8') as f:
             stats_data = json.load(f)
         
-        # Convert back to MonitoringStats
-        # This would need proper deserialization in full implementation
-        return stats_data
+        return MonitoringStats(**stats_data)
         
     except Exception as e:
         raise ExportError(f"Failed to load session stats from {stats_file}: {e}")

@@ -94,7 +94,7 @@ class HTMLExporter(BaseExporter):
         </section>"""
         
         # Calculate summary statistics
-        crash_types = {}
+        crash_types: Dict[str, int] = {}
         severity_high = 0
         apps_affected = set()
         devices_affected = set()

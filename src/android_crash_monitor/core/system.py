@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Any, Dict, cast
 
 from .config import SystemInfo
 
@@ -24,7 +24,7 @@ class SystemDetector:
     """Detects system information and capabilities."""
     
     def __init__(self):
-        self._cache = {}
+        self._cache: Dict[str, Any] = {}
     
     def detect_all(self) -> SystemInfo:
         """Detect all system information at once."""
@@ -57,7 +57,7 @@ class SystemDetector:
                 self._cache['os_name'] = 'Windows'
             else:
                 self._cache['os_name'] = system
-        return self._cache['os_name']
+        return cast(str, self._cache['os_name'])
     
     def get_architecture(self) -> str:
         """Get the system architecture."""
@@ -71,7 +71,7 @@ class SystemDetector:
                 self._cache['architecture'] = 'x86'
             else:
                 self._cache['architecture'] = machine.upper()
-        return self._cache['architecture']
+        return cast(str, self._cache['architecture'])
     
     def get_os_version(self) -> str:
         """Get the operating system version."""
@@ -101,7 +101,7 @@ class SystemDetector:
                 self._cache['os_version'] = version or 'Unknown'
             except Exception:
                 self._cache['os_version'] = 'Unknown'
-        return self._cache['os_version']
+        return cast(str, self._cache['os_version'])
     
     def get_download_tools(self) -> List[str]:
         """Get available download tools."""
@@ -112,14 +112,14 @@ class SystemDetector:
             if self._command_exists('wget'):
                 tools.append('wget')
             self._cache['download_tools'] = tools
-        return self._cache['download_tools']
+        return cast(list[str], self._cache['download_tools'])
     
     def get_python_version(self) -> str:
         """Get the Python version."""
         if 'python_version' not in self._cache:
             version = sys.version_info
             self._cache['python_version'] = f"{version.major}.{version.minor}.{version.micro}"
-        return self._cache['python_version']
+        return cast(str, self._cache['python_version'])
     
     def detect_package_managers(self) -> List[str]:
         """Detect available package managers."""
@@ -155,7 +155,7 @@ class SystemDetector:
                         managers.append(cmd)
             
             self._cache['package_managers'] = managers
-        return self._cache['package_managers']
+        return cast(list[str], self._cache['package_managers'])
     
     def has_download_tools(self) -> bool:
         """Check if download tools (curl, wget) are available."""
@@ -163,14 +163,14 @@ class SystemDetector:
             has_curl = self._command_exists('curl')
             has_wget = self._command_exists('wget')
             self._cache['has_download_tools'] = has_curl or has_wget
-        return self._cache['has_download_tools']
+        return cast(bool, self._cache['has_download_tools'])
     
     def get_shell(self) -> str:
         """Get the current shell."""
         if 'shell' not in self._cache:
             shell = Path(os.environ.get('SHELL', '/bin/bash')).name
             self._cache['shell'] = shell
-        return self._cache['shell']
+        return cast(str, self._cache['shell'])
     
     def get_terminal(self) -> Optional[str]:
         """Get the terminal emulator name."""
@@ -187,7 +187,7 @@ class SystemDetector:
                     terminal = term
             
             self._cache['terminal'] = terminal
-        return self._cache['terminal']
+        return cast(str | None, self._cache['terminal'])
     
     def is_admin(self) -> bool:
         """Check if running with administrator privileges."""
@@ -195,12 +195,12 @@ class SystemDetector:
             try:
                 if self.get_os_name() == 'Windows':
                     import ctypes
-                    self._cache['is_admin'] = ctypes.windll.shell32.IsUserAnAdmin() != 0
+                    self._cache['is_admin'] = ctypes.windll.shell32.IsUserAnAdmin() != 0  # type: ignore[attr-defined]
                 else:
                     self._cache['is_admin'] = os.getuid() == 0
             except (ImportError, AttributeError, OSError):
                 self._cache['is_admin'] = False
-        return self._cache['is_admin']
+        return cast(bool, self._cache['is_admin'])
     
     def get_java_version(self) -> Optional[str]:
         """Get Java version if available."""
@@ -222,7 +222,7 @@ class SystemDetector:
                     self._cache['java_version'] = None
             except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
                 self._cache['java_version'] = None
-        return self._cache['java_version']
+        return cast(str | None, self._cache['java_version'])
     
     def get_android_home(self) -> Optional[Path]:
         """Get Android SDK home directory."""
@@ -257,23 +257,23 @@ class SystemDetector:
                         Path('C:/Android/Sdk'),
                     ]
                 
-                for path in common_paths:
-                    if path.is_dir() and (path / 'platform-tools').is_dir():
-                        android_home = path
+                for sdk_path in common_paths:
+                    if sdk_path.is_dir() and (sdk_path / 'platform-tools').is_dir():
+                        android_home = sdk_path
                         break
             
             self._cache['android_home'] = android_home
-        return self._cache['android_home']
+        return cast(Path | None, self._cache['android_home'])
     
     def get_system_info_dict(self) -> dict:
         """Get all system information as a dictionary."""
         info = self.detect_all()
         result = {
-            'os_name': info.os_name,
-            'architecture': info.architecture,
+            'os_name': info.os,
+            'architecture': info.arch,
             'python_version': info.python_version,
             'package_managers': info.package_managers,
-            'has_download_tools': info.has_download_tools,
+            'has_download_tools': bool(info.download_tools),
             'shell': self.get_shell(),
             'terminal': self.get_terminal(),
             'is_admin': self.is_admin(),

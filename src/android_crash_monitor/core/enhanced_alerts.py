@@ -16,7 +16,7 @@ This module provides specialized alerting for System.err crashes with:
 import time
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Callable
+from typing import Dict, List, Optional, Set, Callable, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
@@ -217,7 +217,7 @@ class EnhancedAlertingSystem:
         self.alert_rules = self._create_default_rules()
         
         # Statistics
-        self.alert_stats = {
+        self.alert_stats: Dict[str, Any] = {
             "total_alerts": 0,
             "alerts_by_type": {},
             "alerts_by_level": {},
@@ -343,7 +343,7 @@ class EnhancedAlertingSystem:
                              rule: AlertRule):
         """Handle alert for cascade failure."""
         crash_type = pattern_match.crash_type
-        cascade_info = pattern_match.additional_context.get("cascade_detected", {})
+        cascade_info: Dict[str, Any] = (pattern_match.additional_context or {}).get("cascade_detected", {})
         
         # Create high-priority alert for cascade
         alert = Alert(

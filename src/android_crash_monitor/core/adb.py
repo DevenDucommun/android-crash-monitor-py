@@ -150,7 +150,7 @@ class ADBManager:
             )
             
             return CommandResult(
-                returncode=process.returncode,
+                returncode=process.returncode if process.returncode is not None else -1,
                 stdout=stdout.decode() if stdout else "",
                 stderr=stderr.decode() if stderr else ""
             )

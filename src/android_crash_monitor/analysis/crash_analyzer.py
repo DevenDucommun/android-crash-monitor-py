@@ -51,7 +51,7 @@ class CrashAnalyzer:
     """
     
     # Critical patterns based on Pixel 6 case study
-    CRITICAL_PATTERNS = {
+    CRITICAL_PATTERNS: Dict[str, Dict[str, Any]] = {
         'database_connection_pool': {
             'keywords': ['connection pool', 'Cannot perform this operation because the connection pool has been closed'],
             'severity': 9,
@@ -99,8 +99,8 @@ class CrashAnalyzer:
     def __init__(self, log_directory: Path):
         """Initialize analyzer with log directory."""
         self.log_directory = Path(log_directory)
-        self.crashes = []
-        self.analysis_results = {}
+        self.crashes: List[Dict[str, Any]] = []
+        self.analysis_results: Dict[str, Any] = {}
         
     def load_crashes(self) -> int:
         """Load all crash files from the log directory."""
@@ -241,10 +241,10 @@ class CrashAnalyzer:
             'timeline_summary': {period: len(crashes) for period, crashes in periods.items()}
         }
         
-    def analyze_system_components(self) -> Dict[str, int]:
+    def analyze_system_components(self) -> Dict[str, Any]:
         """Analyze which system components are most affected."""
-        app_crashes = Counter()
-        system_crashes = Counter()
+        app_crashes: Counter[str] = Counter()
+        system_crashes: Counter[str] = Counter()
         
         for crash in self.crashes:
             app_name = crash.get('app_name', 'Unknown')

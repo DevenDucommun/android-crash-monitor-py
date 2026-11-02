@@ -5,7 +5,7 @@ import sqlite3
 from contextlib import contextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from platformdirs import user_data_dir
 
@@ -66,7 +66,7 @@ class CrashDatabase:
                     json.dumps(crash),
                 ),
             )
-            return cur.lastrowid
+            return cast(int, cur.lastrowid)
 
     def query_crashes(
         self,
@@ -123,4 +123,4 @@ class CrashDatabase:
         cutoff = (datetime.now() - timedelta(days=older_than_days)).isoformat()
         with self._conn() as conn:
             cur = conn.execute("DELETE FROM crashes WHERE timestamp < ?", (cutoff,))
-            return cur.rowcount
+            return cast(int, cur.rowcount)

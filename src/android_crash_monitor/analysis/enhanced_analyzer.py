@@ -65,8 +65,8 @@ class EnhancedCrashAnalyzer:
         self.plain_explainer = PlainLanguageExplainer()
         
         # Analysis cache
-        self._cached_results = None
-        self._cache_timestamp = None
+        self._cached_results: Optional[EnhancedAnalysisResult] = None
+        self._cache_timestamp: Optional[datetime] = None
     
     def analyze_comprehensive(self, force_refresh: bool = False) -> EnhancedAnalysisResult:
         """
@@ -215,10 +215,10 @@ class EnhancedCrashAnalyzer:
                 f"Found {len(result.simple_patterns)} traditional patterns for verification:\n"
             ])
             
-            for pattern_name, pattern in result.simple_patterns.items():
+            for pattern_name, simple in result.simple_patterns.items():
                 report_parts.extend([
-                    f"• **{pattern_name.replace('_', ' ').title()}:** {pattern.count} occurrences",
-                    f"  Risk: {pattern.risk_level} | {pattern.description}"
+                    f"• **{pattern_name.replace('_', ' ').title()}:** {simple.count} occurrences",
+                    f"  Risk: {simple.risk_level} | {simple.description}"
                 ])
         
         # Footer

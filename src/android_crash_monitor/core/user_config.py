@@ -2,7 +2,7 @@
 
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from platformdirs import user_config_dir
 
@@ -99,23 +99,23 @@ class UserConfig:
 
     @property
     def severity_threshold(self) -> int:
-        return self._data["severity_threshold"]
+        return cast(int, self._data["severity_threshold"])
 
     @property
     def retention_days(self) -> int:
-        return self._data["retention_days"]
+        return cast(int, self._data["retention_days"])
 
     @property
     def webhook_url(self) -> str:
-        return self._data["webhook_url"]
+        return cast(str, self._data["webhook_url"])
 
     @property
     def notification_enabled(self) -> bool:
-        return self._data["notification_enabled"]
+        return cast(bool, self._data["notification_enabled"])
 
     @property
     def device_aliases(self) -> Dict[str, str]:
-        return self._data.get("device_aliases", {})
+        return cast(dict[str, str], self._data.get("device_aliases", {}))
 
 
 def _parse_toml(content: str) -> Dict[str, Any]:

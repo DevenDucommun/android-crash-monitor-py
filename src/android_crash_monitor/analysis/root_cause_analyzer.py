@@ -11,7 +11,7 @@ Performs automated root cause analysis on crashes using:
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple, cast
 from collections import defaultdict, Counter
 from enum import Enum
 import re
@@ -228,7 +228,7 @@ class DependencyAnalyzer:
         class_pattern = r'([a-z][a-z0-9_]*\.)+[A-Z][a-zA-Z0-9_]*'
         matches = re.findall(class_pattern, description)
         if matches:
-            return matches[0]
+            return cast(str, matches[0])
         
         # Use component type as fallback
         return comp_type.value.replace('_', ' ').title()
@@ -510,7 +510,7 @@ class RootCauseAnalyzer:
         self.fault_tree_analyzer = FaultTreeAnalyzer()
         self.causal_engine = CausalInferenceEngine()
     
-    def analyze(self, crashes: List[Dict], analysis_id: str = None) -> RootCauseAnalysis:
+    def analyze(self, crashes: List[Dict], analysis_id: Optional[str] = None) -> RootCauseAnalysis:
         """Perform comprehensive root cause analysis"""
         if not crashes:
             return RootCauseAnalysis(analysis_id=analysis_id or "rca_empty")
@@ -565,7 +565,7 @@ class RootCauseAnalyzer:
         contributing_factors = []
         
         # Analyze causal chains for root causes
-        root_causes_count = Counter()
+        root_causes_count: Counter[str] = Counter()
         for chain in chains:
             # Lower threshold to catch more potential root causes
             if chain.root_cause and chain.confidence > 0.2:
@@ -684,4 +684,4 @@ class RootCauseAnalyzer:
         chain_conf = sum(c.confidence for c in chains) / len(chains) if chains else 0.5
         
         # Weighted average
-        return cause_conf * 0.7 + chain_conf * 0.3
+        return cast(float, cause_conf * 0.7 + chain_conf * 0.3)

@@ -8,7 +8,7 @@ import subprocess
 import time
 import re
 from typing import Dict, List, Tuple, Optional
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import json
 
@@ -18,8 +18,8 @@ class FixResult:
     success: bool
     message: str
     applied_fixes: List[str]
-    warnings: List[str] = None
-    errors: List[str] = None
+    warnings: List[str] = field(default_factory=list)
+    errors: List[str] = field(default_factory=list)
 
 class AutoFixManager:
     """Manages automated fixes for common Android problems"""
@@ -131,7 +131,7 @@ class AutoFixManager:
         
         return safe_fixes
     
-    def apply_fix(self, fix_id: str, package_name: str = None) -> FixResult:
+    def apply_fix(self, fix_id: str, package_name: Optional[str] = None) -> FixResult:
         """Apply a specific fix"""
         if not self.check_device_connection():
             return FixResult(

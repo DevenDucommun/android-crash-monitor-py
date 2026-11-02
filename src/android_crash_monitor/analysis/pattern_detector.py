@@ -9,7 +9,7 @@ complex crash patterns and correlations.
 import re
 import math
 from collections import Counter, defaultdict
-from typing import Any, List, Dict, Tuple, Optional, Set
+from typing import Any, List, Dict, Tuple, Optional, Set, DefaultDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -385,7 +385,7 @@ class PatternDetector:
     def _detect_timing_anomalies(self, crashes: List[Dict]) -> List[Dict[str, Any]]:
         """Detect unusual timing patterns in crashes."""
         # Group crashes by hour to detect timing patterns
-        hour_counts = defaultdict(int)
+        hour_counts: DefaultDict[int, int] = defaultdict(int)
         
         for crash in crashes:
             timestamp = self._parse_timestamp(crash.get('timestamp', ''))

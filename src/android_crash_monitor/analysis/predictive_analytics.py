@@ -8,7 +8,7 @@ patterns, temporal trends, and system state indicators.
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Any, DefaultDict, Deque
 from collections import defaultdict, deque
 from enum import Enum
 import statistics
@@ -165,7 +165,7 @@ class CrashFeatureExtractor:
         crash_types = self._categorize_crashes(crashes[-100:])  # Last 100 crashes
         features.unique_crash_types = len(crash_types)
         if crash_types:
-            features.most_common_crash_type = max(crash_types, key=crash_types.get)
+            features.most_common_crash_type = max(crash_types, key=lambda t: crash_types[t])
             features.crash_diversity_score = self._calculate_entropy(crash_types)
         
         # Severity features
@@ -208,7 +208,7 @@ class CrashFeatureExtractor:
     
     def _categorize_crashes(self, crashes: List[Dict]) -> Dict[str, int]:
         """Categorize crashes by type"""
-        categories = defaultdict(int)
+        categories: DefaultDict[str, int] = defaultdict(int)
         for crash in crashes:
             desc = crash.get('description', '').lower()
             categorized = False
@@ -330,8 +330,8 @@ class PredictiveCrashAnalyzer:
     
     def __init__(self, history_size: int = 10000):
         self.feature_extractor = CrashFeatureExtractor()
-        self.crash_history = deque(maxlen=history_size)
-        self.prediction_history = []
+        self.crash_history: Deque[Dict] = deque(maxlen=history_size)
+        self.prediction_history: List[Any] = []
         self.metrics = PredictionMetrics()
         
         # Model parameters (tunable weights)

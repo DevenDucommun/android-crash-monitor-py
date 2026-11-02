@@ -5,7 +5,7 @@ Converts technical crash information into easy-to-understand explanations
 """
 
 import re
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, cast
 from dataclasses import dataclass
 
 @dataclass
@@ -164,7 +164,7 @@ class PlainLanguageExplainer:
             }
         }
     
-    def explain_crash_pattern(self, crash_text: str, crash_type: str = None) -> PlainExplanation:
+    def explain_crash_pattern(self, crash_text: str, crash_type: Optional[str] = None) -> PlainExplanation:
         """Convert a crash or error into plain language explanation"""
         
         # Convert to lowercase for pattern matching
@@ -187,7 +187,7 @@ class PlainLanguageExplainer:
             explanation = self.crash_patterns[best_match]['explanation']
             # Add technical note with original error
             explanation.technical_note = f"Technical details: {crash_text[:200]}..."
-            return explanation
+            return cast(PlainExplanation, explanation)
         
         # Fallback generic explanation
         return PlainExplanation(

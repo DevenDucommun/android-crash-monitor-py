@@ -5,7 +5,7 @@ Crash Processing Utilities
 Common functions for processing crash data across analyzers.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any, cast
 
 
 def extract_crash_text(crash: Dict) -> str:
@@ -44,7 +44,7 @@ def get_crash_severity(crash: Dict) -> str:
     """
     # Check for explicit severity
     if 'severity' in crash:
-        return crash['severity'].lower()
+        return cast(str, crash['severity'].lower())
     
     # Infer from exception type
     exception_type = crash.get('exception_type', '').lower()
@@ -101,7 +101,7 @@ def group_crashes_by_exception(crashes: List[Dict]) -> Dict[str, List[Dict]]:
     Returns:
         Dictionary mapping exception types to lists of crashes
     """
-    grouped = {}
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
     for crash in crashes:
         exc_type = crash.get('exception_type', 'Unknown')
         if exc_type not in grouped:
@@ -120,7 +120,7 @@ def group_crashes_by_package(crashes: List[Dict]) -> Dict[str, List[Dict]]:
     Returns:
         Dictionary mapping package names to lists of crashes
     """
-    grouped = {}
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
     for crash in crashes:
         package = crash.get('package_name', 'Unknown')
         if package not in grouped:

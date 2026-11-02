@@ -11,9 +11,10 @@ from .json_exporter import JSONExporter, CompactJSONExporter, DetailedJSONExport
 from .csv_exporter import CSVExporter, ExcelCSVExporter, DetailedCSVExporter, LogsCSVExporter
 from .html_exporter import HTMLExporter
 from .text_exporter import TextExporter, MarkdownExporter
+from typing import Dict, Type
 
 # Export format registry
-EXPORTERS = {
+EXPORTERS: Dict[str, Type[BaseExporter]] = {
     'json': JSONExporter,
     'csv': CSVExporter, 
     'html': HTMLExporter,
