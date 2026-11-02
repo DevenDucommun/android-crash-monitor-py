@@ -49,7 +49,7 @@ class JSONExporter(BaseExporter):
     def _build_json_structure(self, data: ExportData, include_metadata: bool = True, 
                             include_raw_logs: bool = False) -> Dict[str, Any]:
         """Build the complete JSON structure."""
-        json_data = {}
+        json_data: Dict[str, Any] = {}
         
         # Add metadata
         if include_metadata:
@@ -85,10 +85,10 @@ class JSONExporter(BaseExporter):
             }
         
         # Count crashes by type
-        crash_types = {}
-        severity_dist = {}
-        apps_affected = {}
-        devices_affected = {}
+        crash_types: Dict[str, int] = {}
+        severity_dist: Dict[str, int] = {}
+        apps_affected: Dict[str, int] = {}
+        devices_affected: Dict[str, int] = {}
         
         timestamps = []
         

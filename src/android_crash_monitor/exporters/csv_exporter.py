@@ -8,7 +8,7 @@ spreadsheet applications like Excel, Google Sheets, etc.
 
 import csv
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, cast
 
 from .base import BaseExporter, ExportData, ExportError
 
@@ -156,7 +156,7 @@ class CSVExporter(BaseExporter):
             desc = crash_dict.get('description', '')
             if len(desc) > 200:
                 desc = desc[:200] + '...'
-            return desc.replace('\n', ' ').replace('\r', ' ')
+            return cast(str, desc.replace('\n', ' ').replace('\r', ' '))
         
         else:
             # Standard column
@@ -243,7 +243,7 @@ class LogsCSVExporter(BaseExporter):
                 # Write log entries
                 for log in data.logs:
                     row = []
-                    log_dict = log.to_dict() if hasattr(log, 'to_dict') else log
+                    log_dict: Dict[str, Any] = log.to_dict() if hasattr(log, 'to_dict') else log  # type: ignore[assignment]
                     
                     for column in columns:
                         value = log_dict.get(column, '')

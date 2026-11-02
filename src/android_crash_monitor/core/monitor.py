@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, AsyncGenerator, Callable
+from typing import Dict, List, Optional, Set, AsyncGenerator, Callable, Union
 from enum import Enum
 
 from .adb import ADBManager, ADBError, AndroidDevice
@@ -31,16 +31,8 @@ from ..utils.logger import get_logger
 try:
     from .enhanced_detector import EnhancedCrashDetector
     ENHANCED_DETECTION_AVAILABLE = True
-except ImportError as e:
-    # Try alternative import paths
-    try:
-        import sys
-        import os
-        sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-        from enhanced_detector import EnhancedCrashDetector
-        ENHANCED_DETECTION_AVAILABLE = True
-    except ImportError:
-        ENHANCED_DETECTION_AVAILABLE = False
+except ImportError:
+    ENHANCED_DETECTION_AVAILABLE = False
 
 logger = get_logger(__name__)
 
@@ -487,7 +479,7 @@ class AndroidCrashMonitor:
         
         # Use enhanced crash detector if available
         if ENHANCED_DETECTION_AVAILABLE:
-            self.crash_detector = EnhancedCrashDetector(console, Path(config.output_dir))
+            self.crash_detector: Union[EnhancedCrashDetector, CrashDetector] = EnhancedCrashDetector(console, Path(config.output_dir))
             self.console.info("🚀 Enhanced System.err monitoring enabled")
         else:
             self.crash_detector = CrashDetector()
@@ -496,13 +488,13 @@ class AndroidCrashMonitor:
         # Monitoring state
         self.is_running = False
         self.session_id = f"session_{int(time.time())}"
-        self.start_time = None
+        self.start_time: Optional[datetime] = None
         self.monitored_devices: List[AndroidDevice] = []
         self.active_processes: Dict[str, asyncio.subprocess.Process] = {}
         
         # UX improvements
-        self.last_reminder_time = 0
-        self.last_stats_display = 0
+        self.last_reminder_time = 0.0
+        self.last_stats_display = 0.0
         self.crash_count_since_last_reminder = 0
         
         # Statistics
@@ -530,7 +522,7 @@ class AndroidCrashMonitor:
         self.crash_handlers: List[Callable[[CrashEvent], None]] = []
         
         # Graceful shutdown (will be initialized when monitoring starts)
-        self.shutdown_event = None
+        self.shutdown_event: Optional[asyncio.Event] = None
         
     def add_crash_handler(self, handler: Callable[[CrashEvent], None]):
         """Add a crash event handler."""
@@ -541,8 +533,9 @@ class AndroidCrashMonitor:
         if self.is_running:
             raise RuntimeError("Monitor is already running")
         
-        self.start_time = datetime.now()
-        self.stats.start_time = self.start_time.isoformat()
+        start_time = datetime.now()
+        self.start_time = start_time
+        self.stats.start_time = start_time.isoformat()
         
         # Initialize async components now that we have an event loop
         self.shutdown_event = asyncio.Event()
@@ -751,6 +744,8 @@ class AndroidCrashMonitor:
     
     async def _read_logcat_stream(self, process: asyncio.subprocess.Process) -> AsyncGenerator[str, None]:
         """Read lines from logcat process stream."""
+        if process.stdout is None:
+            return
         while True:
             try:
                 line = await asyncio.wait_for(

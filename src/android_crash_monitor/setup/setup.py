@@ -361,10 +361,16 @@ For Windows, you can install ADB using:
                 else:
                     return True
     
+    def _require_adb(self) -> ADBManager:
+        """Return the ADB manager; callers run only after ADB was detected."""
+        if self.adb_manager is None:
+            raise RuntimeError("ADB manager not initialised")
+        return self.adb_manager
+
     async def _get_adb_version(self) -> str:
         """Get ADB version string."""
         try:
-            result = await self.adb_manager.run_command(["version"], timeout=5)
+            result = await self._require_adb().run_command(["version"], timeout=5)
             return result.stdout.split('\n')[0] if result.stdout else "Unknown version"
         except Exception:
             return "Unknown version"
@@ -447,7 +453,7 @@ To connect your Android device:
         while attempt < max_attempts:
             if Confirm.ask("Check for devices now?", default=True):
                 with self.ui.spinner("Scanning for devices..."):
-                    self.detected_devices = await self.adb_manager.list_devices()
+                    self.detected_devices = await self._require_adb().list_devices()
                 
                 if self.detected_devices:
                     self.ui.success(f"Found {len(self.detected_devices)} device(s):")
@@ -490,7 +496,7 @@ To connect your Android device:
             
             with self.ui.spinner("Waiting for authorization..."):
                 await asyncio.sleep(5)
-                self.detected_devices = await self.adb_manager.list_devices()
+                self.detected_devices = await self._require_adb().list_devices()
             
             unauthorized = [d for d in self.detected_devices if d.status == "unauthorized"]
             if not unauthorized:
@@ -559,7 +565,7 @@ To connect your Android device:
         
         # Save configuration
         try:
-            self.config_manager.save_profile(profile_name, config)
+            self.config_manager.save_monitoring_profile(profile_name, config)
             self.config_manager.set_active_profile(profile_name)
             
             self.ui.success(f"Configuration saved as '{profile_name}' profile")

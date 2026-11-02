@@ -9,7 +9,7 @@ using Pydantic for validation and platformdirs for cross-platform paths.
 import json
 from pathlib import Path
 from typing import Dict, List, Optional, Any
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from platformdirs import user_config_dir, user_data_dir
@@ -27,8 +27,8 @@ class SystemInfo:
     version: str = ""
     arch: str = ""
     python_version: str = ""
-    package_managers: List[str] = None
-    download_tools: List[str] = None
+    package_managers: List[str] = field(default_factory=list)
+    download_tools: List[str] = field(default_factory=list)
     has_android_sdk: bool = False
     has_java: bool = False
     java_version: Optional[str] = None
@@ -177,7 +177,7 @@ class ConfigManager:
             profile_file.parent.mkdir(parents=True, exist_ok=True)
             
             with open(profile_file, 'w', encoding='utf-8') as f:
-                json.dump(config.dict(), f, indent=2, default=str)
+                json.dump(config.model_dump(), f, indent=2, default=str)
                 
         except (OSError, PermissionError) as e:
             raise ConfigError(f"Cannot save configuration to {profile_file}: {e}")
@@ -219,8 +219,8 @@ class ConfigManager:
         """Get the application configuration directory."""
         return self.config_dir
     
-    def save_profile(self, profile_name: str, config: MonitoringConfig) -> None:
-        """Save a monitoring configuration profile (setup wizard compatible)."""
+    def save_monitoring_profile(self, profile_name: str, config: MonitoringConfig) -> None:
+        """Save a monitoring configuration profile (setup wizard)."""
         profile_file = self.config_dir / f"{profile_name}.json"
         
         try:
@@ -228,7 +228,7 @@ class ConfigManager:
             profile_file.parent.mkdir(parents=True, exist_ok=True)
             
             # Convert to dict and handle Path serialization
-            config_dict = config.dict()
+            config_dict = config.model_dump()
             if 'output_dir' in config_dict and isinstance(config_dict['output_dir'], Path):
                 config_dict['output_dir'] = str(config_dict['output_dir'])
             
@@ -279,11 +279,6 @@ class ConfigManager:
         """Get current timestamp in ISO format."""
         from datetime import datetime
         return datetime.now().isoformat()
-
-
-class ConfigError(Exception):
-    """Configuration-related errors."""
-    pass
 
 
 def get_default_config() -> Config:

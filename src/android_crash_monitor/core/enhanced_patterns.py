@@ -36,7 +36,7 @@ class PatternMatch:
     pattern: str
     confidence: float  # 0.0 - 1.0
     severity_override: Optional[int] = None
-    additional_context: Optional[Dict[str, str]] = None
+    additional_context: Optional[Dict[str, Any]] = None
 
 
 class SystemErrPatterns:

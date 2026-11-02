@@ -108,7 +108,7 @@ class TextExporter(BaseExporter):
             return '\n'.join(lines)
         
         # Calculate summary stats
-        crash_types = {}
+        crash_types: Dict[str, int] = {}
         severity_high = 0
         apps_affected = set()
         devices_affected = set()

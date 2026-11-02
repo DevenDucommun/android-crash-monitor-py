@@ -10,7 +10,7 @@ import threading
 import time
 import queue
 from collections import deque, defaultdict
-from typing import List, Dict, Optional, Callable, Any
+from typing import List, Dict, Optional, Callable, Any, DefaultDict, Deque
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -71,15 +71,15 @@ class RealtimePatternAnalyzer:
         self.alert_callback = alert_callback
         
         # Real-time data structures
-        self.crash_buffer = deque(maxlen=buffer_size)
-        self.crash_queue = queue.Queue()
-        self.pattern_history = defaultdict(list)
-        self.active_patterns = {}
-        self.fired_alerts = []
+        self.crash_buffer: Deque[Dict] = deque(maxlen=buffer_size)
+        self.crash_queue: queue.Queue[Optional[Dict]] = queue.Queue()
+        self.pattern_history: DefaultDict[str, List[Any]] = defaultdict(list)
+        self.active_patterns: Dict[str, EnhancedPattern] = {}
+        self.fired_alerts: List[RealTimeAlert] = []
         self.stats = RealtimeStats()
         
         # Threading control
-        self.processing_thread = None
+        self.processing_thread: Optional[threading.Thread] = None
         self.is_running = False
         self.lock = threading.RLock()
         
@@ -90,7 +90,7 @@ class RealtimePatternAnalyzer:
         )
         
         # Alert configuration
-        self.alert_thresholds = {
+        self.alert_thresholds: Dict[PatternSeverity, Dict[str, Any]] = {
             PatternSeverity.LOW: {
                 'min_confidence': 0.6,
                 'min_frequency': 3,
@@ -125,12 +125,13 @@ class RealtimePatternAnalyzer:
         self.is_running = True
         self.stats.monitoring_start_time = datetime.now()
         
-        self.processing_thread = threading.Thread(
+        thread = threading.Thread(
             target=self._process_crashes_continuously,
             daemon=True,
             name="RealtimeAnalyzer"
         )
-        self.processing_thread.start()
+        self.processing_thread = thread
+        thread.start()
         
         return True
     
@@ -176,23 +177,10 @@ class RealtimePatternAnalyzer:
             now = datetime.now()
             
             # Count crashes in different time windows
-            self.stats.crashes_last_minute = sum(
-                1 for crash in self.crash_buffer
-                if self._get_crash_timestamp(crash) and
-                (now - self._get_crash_timestamp(crash)).total_seconds() <= 60
-            )
-            
-            self.stats.crashes_last_5min = sum(
-                1 for crash in self.crash_buffer
-                if self._get_crash_timestamp(crash) and
-                (now - self._get_crash_timestamp(crash)).total_seconds() <= 300
-            )
-            
-            self.stats.crashes_last_hour = sum(
-                1 for crash in self.crash_buffer
-                if self._get_crash_timestamp(crash) and
-                (now - self._get_crash_timestamp(crash)).total_seconds() <= 3600
-            )
+            ages = [self._crash_age_seconds(crash, now) for crash in self.crash_buffer]
+            self.stats.crashes_last_minute = sum(1 for age in ages if age is not None and age <= 60)
+            self.stats.crashes_last_5min = sum(1 for age in ages if age is not None and age <= 300)
+            self.stats.crashes_last_hour = sum(1 for age in ages if age is not None and age <= 3600)
             
             return self.stats
     
@@ -297,6 +285,11 @@ class RealtimePatternAnalyzer:
     def _get_crash_timestamp(self, crash: Dict) -> Optional[datetime]:
         """Parse crash timestamp"""
         return parse_android_timestamp(crash.get('timestamp', ''))
+
+    def _crash_age_seconds(self, crash: Dict, now: datetime) -> Optional[float]:
+        """Seconds between a crash's timestamp and ``now``, or None if unparseable."""
+        crash_time = self._get_crash_timestamp(crash)
+        return None if crash_time is None else (now - crash_time).total_seconds()
     
     def _update_pattern_tracking(self, pattern: EnhancedPattern) -> None:
         """Update pattern tracking with new detection"""
@@ -398,8 +391,7 @@ class RealtimePatternAnalyzer:
         now = datetime.now()
         recent_crashes = [
             crash for crash in self.crash_buffer
-            if self._get_crash_timestamp(crash) and
-            (now - self._get_crash_timestamp(crash)).total_seconds() <= 60
+            if (age := self._crash_age_seconds(crash, now)) is not None and age <= 60
         ]
         
         if len(recent_crashes) >= self.burst_threshold:

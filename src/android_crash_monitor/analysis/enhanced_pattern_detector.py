@@ -13,7 +13,7 @@ Advanced crash pattern recognition using:
 import re
 import math
 from collections import Counter, defaultdict
-from typing import List, Dict, Tuple, Optional, Set
+from typing import List, Dict, Tuple, Optional, Set, Any, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
@@ -179,7 +179,7 @@ class StatisticalPatternDetector:
         }
         
         # Compile regex patterns for performance
-        self.compiled_patterns = {}
+        self.compiled_patterns: Dict[str, Dict[str, Any]] = {}
         self._compile_patterns()
     
     def _compile_patterns(self):
@@ -386,7 +386,7 @@ class StatisticalPatternDetector:
                 
                 if overlap_score >= 0.5:  # 50% overlap threshold
                     cascade_confidence = (pattern1.confidence_score + pattern2.confidence_score) / 2
-                    cascade_severity = max(pattern1.severity, pattern2.severity)
+                    cascade_severity = max(pattern1.severity, pattern2.severity, key=lambda s: s.value)
                     
                     cascade_pattern = EnhancedPattern(
                         pattern_id=f'cascade_{pattern1.pattern_id}_{pattern2.pattern_id}',
@@ -508,8 +508,8 @@ class StatisticalPatternDetector:
         return min(1.0, clustering_score)
     
     def _calculate_confidence_score(self, frequency_score: float, correlation_score: float,
-                                   temporal_score: float, primary_scores: List[float],
-                                   secondary_scores: List[float]) -> float:
+                                   temporal_score: float, primary_scores: Sequence[float],
+                                   secondary_scores: Sequence[float]) -> float:
         """Calculate overall confidence using weighted metrics"""
         
         # Base score from statistical metrics

@@ -5,7 +5,7 @@ Report Generator - Format crash analysis results into user-friendly reports
 Generates comprehensive, actionable reports based on crash analysis results.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import json
@@ -22,7 +22,7 @@ from .crash_analyzer import CrashAnalyzer, SystemHealthStatus
 class ReportGenerator:
     """Generate formatted crash analysis reports."""
     
-    def __init__(self, console: Console = None):
+    def __init__(self, console: Optional[Console] = None):
         """Initialize report generator."""
         self.console = console or Console()
         
