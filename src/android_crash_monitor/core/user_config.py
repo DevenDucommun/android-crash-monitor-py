@@ -127,7 +127,7 @@ def _parse_toml(content: str) -> Dict[str, Any]:
 
 
 def _parse_toml_fallback(content: str) -> Dict[str, Any]:
-    """Minimal TOML parser for 3.9/3.10."""
+    """Minimal TOML parser for 3.10 (no stdlib tomllib)."""
     result: Dict[str, Any] = {}
     current_table = result
 
