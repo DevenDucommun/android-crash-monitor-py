@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from ..utils.logger import get_logger
+from ..utils.time_utils import parse_android_timestamp
 
 logger = get_logger(__name__)
 
@@ -263,21 +264,7 @@ class PatternDetector:
         
     def _parse_timestamp(self, timestamp_str: str) -> Optional[datetime]:
         """Parse timestamp string to datetime object."""
-        if not timestamp_str:
-            return None
-            
-        try:
-            # Handle format: "MM-DD HH:MM:SS.mmm"
-            if len(timestamp_str) >= 15:
-                # Assume current year
-                year = datetime.now().year
-                month_day_time = timestamp_str[:15]  # "MM-DD HH:MM:SS"
-                full_timestamp = f"{year}-{month_day_time}"
-                return datetime.strptime(full_timestamp, "%Y-%m-%d %H:%M:%S")
-        except Exception:
-            pass
-            
-        return None
+        return parse_android_timestamp(timestamp_str)
         
     def _calculate_confidence(self, primary_matches: List[Dict], 
                             secondary_matches: List[Dict], 

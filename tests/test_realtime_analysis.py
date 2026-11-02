@@ -9,7 +9,7 @@ import time
 import threading
 from datetime import datetime
 
-def test_realtime_analysis():
+def _check_realtime_analysis():
     """Test real-time analysis capabilities"""
     print("🔴 Testing Real-time Pattern Analysis System")
     print("=" * 50)
@@ -197,7 +197,7 @@ def test_realtime_analysis():
         traceback.print_exc()
         return False
 
-def test_alert_thresholds():
+def _check_alert_thresholds():
     """Test alert threshold configuration"""
     print("\n🔧 Testing Alert Threshold Configuration")
     print("=" * 40)
@@ -241,7 +241,7 @@ def test_alert_thresholds():
         print(f"❌ Threshold test error: {e}")
         return False
 
-def test_performance():
+def _check_performance():
     """Test real-time analysis performance"""
     print("\n⚡ Testing Real-time Performance")
     print("=" * 35)
@@ -296,14 +296,26 @@ def test_performance():
         print(f"❌ Performance test error: {e}")
         return False
 
+def test_realtime_analysis():
+    assert _check_realtime_analysis() is not False, "check reported failure; see captured output"
+
+
+def test_alert_thresholds():
+    assert _check_alert_thresholds() is not False, "check reported failure; see captured output"
+
+
+def test_performance():
+    assert _check_performance() is not False, "check reported failure; see captured output"
+
+
 if __name__ == "__main__":
     print("🚀 Real-time Analysis Test Suite")
     print("=" * 50)
     
     # Run tests
-    test1_success = test_realtime_analysis()
-    test2_success = test_alert_thresholds()
-    test3_success = test_performance()
+    test1_success = _check_realtime_analysis()
+    test2_success = _check_alert_thresholds()
+    test3_success = _check_performance()
     
     # Summary
     print(f"\n📊 Final Test Results:")

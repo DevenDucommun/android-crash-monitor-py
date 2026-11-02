@@ -8,7 +8,7 @@ Tests the RCA engine including dependency analysis, fault trees, and causal infe
 from datetime import datetime, timedelta
 
 
-def test_dependency_analysis():
+def _check_dependency_analysis():
     """Test crash dependency detection"""
     print("🔍 Testing Dependency Analysis")
     print("=" * 50)
@@ -84,7 +84,7 @@ def test_dependency_analysis():
         return False
 
 
-def test_fault_tree_analysis():
+def _check_fault_tree_analysis():
     """Test fault tree construction"""
     print("\n🌳 Testing Fault Tree Analysis")
     print("=" * 50)
@@ -162,7 +162,7 @@ def test_fault_tree_analysis():
         return False
 
 
-def test_causal_inference():
+def _check_causal_inference():
     """Test causal chain inference"""
     print("\n🔗 Testing Causal Inference")
     print("=" * 50)
@@ -239,7 +239,7 @@ def test_causal_inference():
         return False
 
 
-def test_full_rca():
+def _check_full_rca():
     """Test complete root cause analysis"""
     print("\n🎯 Testing Complete RCA")
     print("=" * 50)
@@ -350,7 +350,7 @@ def test_full_rca():
         return False
 
 
-def test_edge_cases():
+def _check_edge_cases():
     """Test RCA edge cases"""
     print("\n🔧 Testing Edge Cases")
     print("=" * 50)
@@ -422,16 +422,36 @@ def test_edge_cases():
         return False
 
 
+def test_dependency_analysis():
+    assert _check_dependency_analysis() is not False, "check reported failure; see captured output"
+
+
+def test_fault_tree_analysis():
+    assert _check_fault_tree_analysis() is not False, "check reported failure; see captured output"
+
+
+def test_causal_inference():
+    assert _check_causal_inference() is not False, "check reported failure; see captured output"
+
+
+def test_full_rca():
+    assert _check_full_rca() is not False, "check reported failure; see captured output"
+
+
+def test_edge_cases():
+    assert _check_edge_cases() is not False, "check reported failure; see captured output"
+
+
 if __name__ == "__main__":
     print("🚀 Root Cause Analysis Test Suite")
     print("=" * 50)
     
     # Run tests
-    test1_success = test_dependency_analysis()
-    test2_success = test_fault_tree_analysis()
-    test3_success = test_causal_inference()
-    test4_success = test_full_rca()
-    test5_success = test_edge_cases()
+    test1_success = _check_dependency_analysis()
+    test2_success = _check_fault_tree_analysis()
+    test3_success = _check_causal_inference()
+    test4_success = _check_full_rca()
+    test5_success = _check_edge_cases()
     
     # Summary
     print(f"\n" + "=" * 50)

@@ -5,54 +5,69 @@ Time Utilities
 Centralized timestamp parsing and manipulation for Android crash monitoring.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 
-def parse_android_timestamp(timestamp_str: str) -> Optional[datetime]:
+_YEAR_FORMATS = ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S')
+_YEARLESS_FORMATS = ('%m-%d %H:%M:%S.%f', '%m-%d %H:%M:%S')
+
+# Tolerance for device clocks running slightly ahead of the host before a
+# year-less timestamp is treated as belonging to the previous year.
+_FUTURE_TOLERANCE = timedelta(days=1)
+
+
+def parse_android_timestamp(timestamp_str: str, now: Optional[datetime] = None) -> Optional[datetime]:
     """
     Parse Android logcat timestamp with robust format handling.
-    
+
     Handles multiple timestamp formats commonly found in Android logs:
-    - With year: YYYY-MM-DD HH:MM:SS.fff
-    - Without year: MM-DD HH:MM:SS.fff (assumes current year)
-    - Without microseconds: MM-DD HH:MM:SS
-    
+    - With year: YYYY-MM-DD HH:MM:SS[.fff]
+    - Without year (default ``adb logcat`` output): MM-DD HH:MM:SS[.fff]
+
+    Year-less timestamps get the most recent year that does not place them in
+    the future, so December entries read in January resolve to the previous
+    year. The year is supplied *before* parsing, which keeps leap-day entries
+    (``02-29``) parseable and avoids strptime's ambiguous default year
+    (deprecated in Python 3.13, changing in 3.15).
+
     Args:
         timestamp_str: Timestamp string from Android logcat
-        
+        now: Reference time for year inference (defaults to ``datetime.now()``)
+
     Returns:
         Parsed datetime object, or None if parsing fails
-        
+
     Examples:
         >>> parse_android_timestamp("2024-10-24 04:15:36.123")
-        datetime(2024, 10, 24, 4, 15, 36, 123000)
-        
-        >>> parse_android_timestamp("10-24 04:15:36.123")  # Assumes current year
-        datetime(2024, 10, 24, 4, 15, 36, 123000)
+        datetime.datetime(2024, 10, 24, 4, 15, 36, 123000)
+
+        >>> parse_android_timestamp("12-31 23:59:59.000", now=datetime(2025, 1, 1))
+        datetime.datetime(2024, 12, 31, 23, 59, 59)
     """
     if not timestamp_str:
         return None
-    
-    # Try different timestamp formats (prefer formats with year)
-    formats = [
-        '%Y-%m-%d %H:%M:%S.%f',  # With year and microseconds
-        '%Y-%m-%d %H:%M:%S',      # With year, no microseconds
-        '%m-%d %H:%M:%S.%f',      # Without year, with microseconds
-        '%m-%d %H:%M:%S'          # Without year, no microseconds
-    ]
-    
-    for fmt in formats:
+    text = timestamp_str.strip()
+
+    for fmt in _YEAR_FORMATS:
         try:
-            parsed = datetime.strptime(timestamp_str.strip(), fmt)
-            # For formats without year, assume current year
-            if '%Y' not in fmt:
-                parsed = parsed.replace(year=datetime.now().year)
-            return parsed
+            return datetime.strptime(text, fmt)
         except ValueError:
             continue
-    
-    # If all formats fail, return None
+
+    reference = now or datetime.now()
+    for fmt in _YEARLESS_FORMATS:
+        # Newest candidate first: next year covers a device clock that is
+        # slightly ahead across New Year; previous year covers December logs
+        # read in January.
+        for year in (reference.year + 1, reference.year, reference.year - 1):
+            try:
+                parsed = datetime.strptime(f"{year}-{text}", f"%Y-{fmt}")
+            except ValueError:
+                continue
+            if parsed <= reference + _FUTURE_TOLERANCE:
+                return parsed
+
     return None
 
 
