@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, List, Optional, Set, AsyncGenerator, Callable, Union
+from typing import Any, Dict, List, Optional, Set, AsyncGenerator, Callable, Union
 from enum import Enum
 
 from .adb import ADBManager, ADBError, AndroidDevice
@@ -78,6 +78,24 @@ class LogEntry:
             'level': self.level.value
         }
 
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "LogEntry":
+        """Rebuild a LogEntry from to_dict() output, tolerating missing fields."""
+        try:
+            level = LogLevel(data.get('level', LogLevel.INFO.value))
+        except ValueError:
+            level = LogLevel.INFO
+        return cls(
+            timestamp=str(data.get('timestamp', '')),
+            level=level,
+            tag=str(data.get('tag', '')),
+            pid=int(data.get('pid') or 0),
+            tid=int(data.get('tid') or 0),
+            message=str(data.get('message', '')),
+            device_serial=str(data.get('device_serial', '')),
+            raw_line=str(data.get('raw_line', '')),
+        )
+
 
 @dataclass
 class CrashEvent:
@@ -104,6 +122,41 @@ class CrashEvent:
         result['crash_type'] = self.crash_type.value
         result['related_logs'] = [log.to_dict() for log in self.related_logs]
         return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "CrashEvent":
+        """Rebuild a CrashEvent from to_dict() output (e.g. saved crash_*.json files).
+
+        Missing fields get neutral defaults and unknown crash types map to UNKNOWN,
+        so files written by older versions still load.
+        """
+        try:
+            crash_type = CrashType(data.get('crash_type', CrashType.UNKNOWN.value))
+        except ValueError:
+            crash_type = CrashType.UNKNOWN
+        stack_trace = data.get('stack_trace') or []
+        if isinstance(stack_trace, str):
+            stack_trace = stack_trace.splitlines()
+        timestamp = str(data.get('timestamp', ''))
+        return cls(
+            timestamp=timestamp,
+            crash_type=crash_type,
+            app_package=data.get('app_package'),
+            app_name=data.get('app_name'),
+            severity=int(data.get('severity') or 0),
+            title=str(data.get('title', '')),
+            description=str(data.get('description', '')),
+            stack_trace=[str(line) for line in stack_trace],
+            related_logs=[
+                LogEntry.from_dict(log) for log in data.get('related_logs') or []
+                if isinstance(log, dict)
+            ],
+            device_serial=str(data.get('device_serial', '')),
+            device_model=data.get('device_model'),
+            session_id=str(data.get('session_id', '')),
+            detection_patterns=[str(p) for p in data.get('detection_patterns') or []],
+            first_seen=str(data.get('first_seen', timestamp)),
+        )
 
 
 @dataclass
