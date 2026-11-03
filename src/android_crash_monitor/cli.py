@@ -656,7 +656,8 @@ def doctor(ctx):
     """Diagnose environment and connectivity issues.
 
     Checks Python version, ADB installation, device connectivity,
-    file permissions, and configuration status.
+    file permissions, and configuration status. Exits with status 1 if
+    any check fails (warnings do not affect the exit status).
     """
     from rich.table import Table
     from .core.doctor import run_checks, Status
@@ -688,6 +689,7 @@ def doctor(ctx):
     failures = [c for c in checks if c.status == Status.FAIL]
     if failures:
         console.print(f"\n[red]{len(failures)} issue(s) need attention.[/red]")
+        ctx.exit(1)
     else:
         console.print("\n[green]✅ All checks passed![/green]")
 

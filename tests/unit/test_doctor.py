@@ -127,7 +127,7 @@ def test_run_checks_returns_all_checks(no_adb, monkeypatch, tmp_path):
     ]
 
 
-def test_acm_doctor_command_reports_failures(no_adb, monkeypatch, tmp_path):
+def _invoke_doctor(monkeypatch, tmp_path):
     from click.testing import CliRunner
 
     from android_crash_monitor import cli as cli_module
@@ -135,8 +135,22 @@ def test_acm_doctor_command_reports_failures(no_adb, monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setattr(doctor, "user_data_dir", lambda app: str(tmp_path / "data"))
     monkeypatch.setattr(doctor, "user_config_dir", lambda app: str(tmp_path / "cfg"))
+    return CliRunner().invoke(cli_module.cli, ["doctor"])
 
-    result = CliRunner().invoke(cli_module.cli, ["doctor"])
+
+def test_acm_doctor_exits_1_when_a_check_fails(no_adb, monkeypatch, tmp_path):
+    result = _invoke_doctor(monkeypatch, tmp_path)
+
+    assert result.exit_code == 1, result.output
+    assert "issue(s) need attention" in result.output
+
+
+def test_acm_doctor_exits_0_when_only_warnings(fake_adb, monkeypatch, tmp_path):
+    # Config file missing is a WARN, everything else passes.
+    fake_adb["version"] = completed("Android Debug Bridge version 1.0.41\n")
+    fake_adb["devices"] = completed("List of devices attached\nemulator-5554\tdevice\n")
+
+    result = _invoke_doctor(monkeypatch, tmp_path)
 
     assert result.exit_code == 0, result.output
-    assert result.exception is None
+    assert "All checks passed" in result.output
