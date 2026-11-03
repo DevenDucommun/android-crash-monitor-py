@@ -41,9 +41,12 @@ v2.2.0 advertised a crash database and a config file. Both are **Partial**:
 | **`config.toml` is never read** | `core/user_config.py` parses `severity_threshold`, `retention_days`, `notification_enabled`, `webhook_url` and `device_aliases`, but nothing loads it. | Monitor applies `severity_threshold`, prunes the database by `retention_days`, and shows `device_aliases`; tests cover each setting. |
 | **`doctor` suggests a command that doesn't exist** | The config-file hint says `acm config init`. | Either add `acm config init` (writes the default `config.toml`) or change the hint; test covers it. |
 
-**Decision needed first:** there are two config systems. JSON profiles live in the `android-crash-monitor` config dir (`ConfigManager`); `config.toml` lives in the `acm` dir. Pick one of:
-- (a) Keep both: profiles for monitoring settings, `config.toml` for user preferences (smallest change).
-- (b) Merge into `config.toml` and migrate profiles (cleaner, larger).
+**Decided (2026-11-02): one config file.** Today there are two config systems: JSON profiles in the `android-crash-monitor` config dir (`ConfigManager`) and `config.toml` in the `acm` dir. They merge into a single `config.toml`:
+
+- `config.toml` in the `acm` config dir is the only source of settings, with profiles stored as sections inside it.
+- On first run, existing JSON profiles are migrated into `config.toml` automatically; the old files are left in place as a backup and a one-line notice says so.
+- `acm config init` writes a commented default `config.toml`; `acm config` reads and edits the same file.
+- Done when: every command reads settings from `config.toml`; a test migrates a JSON profile and gets identical settings; `ConfigManager`'s JSON code path is removed.
 
 Then tag **v2.2.1** (release needs owner approval).
 
