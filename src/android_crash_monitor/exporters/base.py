@@ -168,10 +168,7 @@ def load_crashes_from_files(crash_files: List[Path]) -> List[CrashEvent]:
             with open(crash_file, 'r', encoding='utf-8') as f:
                 crash_data = json.load(f)
             
-            # Convert back to CrashEvent
-            # This is a simplified version - full implementation would need
-            # proper deserialization of all nested objects
-            crashes.append(crash_data)
+            crashes.append(CrashEvent.from_dict(crash_data))
             
         except Exception as e:
             raise ExportError(f"Failed to load crash from {crash_file}: {e}")
